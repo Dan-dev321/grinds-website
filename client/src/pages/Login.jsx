@@ -33,7 +33,7 @@ const Login = () => {
     e.preventDefault()
     setLoading(true)
     try {
-      const res = await axios.post(`${API}/api/login`, formData)
+      const res = await axios.post(`${API}/api/auth/login`, formData)
       login(res.data.user, res.data.token)
 
       const roleMap = {
