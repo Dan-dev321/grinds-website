@@ -1,0 +1,395 @@
+const Availability = require('../models/Availability')
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+const toMins = (t) => {
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
+
+const toTime = (mins) => {
+  const h = String(Math.floor(mins / 60)).padStart(2, '0')
+  const m = String(mins % 60).padStart(2, '0')
+  return `${h}:${m}`
+}
+
+const getDayOfWeek = (dateStr) => {
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday']
+  const [year, month, day] = dateStr.split('-').map(Number)
+  return days[new Date(year, month - 1, day).getDay()]
+}
+
+// ─── ADD SLOT (Tutor/Admin) ───────────────────────────────────────────────────
+const addSlot = async (req, res) => {
+  const { date, startTime, endTime } = req.body
+  try {
+    if (!date || !startTime || !endTime)
+      return res.status(400).json({ message: 'Date, start time and end time are required' })
+    if (startTime >= endTime)
+      return res.status(400).json({ message: 'End time must be after start time' })
+
+    const durationMins = toMins(endTime) - toMins(startTime)
+    if (durationMins < 60)
+      return res.status(400).json({ message: 'Minimum slot length is 1 hour' })
+
+    const dayOfWeek = getDayOfWeek(date)
+
+    const existing = await Availability.find({ tutor: req.user.id, date })
+    const overlap = existing.some(s =>
+      startTime < s.endTime && endTime > s.startTime
+    )
+    if (overlap)
+      return res.status(400).json({ message: 'This slot overlaps with an existing slot' })
+
+    const slot = await Availability.create({
+      tutor: req.user.id,
+      date,
+      dayOfWeek,
+      startTime,
+      endTime,
+      slotType: 'available',
+      isBooked: false
+    })
+    res.status(201).json(slot)
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message })
+  }
+}
+
+// ─── GET SLOTS BY WEEK ────────────────────────────────────────────────────────
+const getSlotsByWeek = async (req, res) => {
+  try {
+    const { weekStart } = req.query
+    if (!weekStart)
+      return res.status(400).json({ message: 'weekStart query param required' })
+
+    const [year, month, day] = weekStart.split('-').map(Number)
+    const dates = Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(year, month - 1, day + i)
+      return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
+    })
+
+    const slots = await Availability.find({ date: { $in: dates } })
+      .populate('tutor', 'name email')
+      .populate('bookedBy', 'name email')
+      .sort({ date: 1, startTime: 1 })
+
+    res.json(slots)
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message })
+  }
+}
+
+// ─── GET ALL SLOTS (Tutor/Admin) ──────────────────────────────────────────────
+const getAllSlots = async (req, res) => {
+  try {
+    const slots = await Availability.find()
+      .populate('tutor', 'name email')
+      .populate('bookedBy', 'name email')
+      .sort({ date: 1, startTime: 1 })
+    res.json(slots)
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message })
+  }
+}
+
+// ─── GET MY BOOKINGS (Student/Parent) ────────────────────────────────────────
+const getMyBookings = async (req, res) => {
+  try {
+    const slots = await Availability.find({ 
+      bookedBy: req.user.id, 
+      slotType: 'booked' 
+    })
+      .populate('tutor', 'name email')
+      .sort({ date: 1, startTime: 1 })
+    res.json(slots)
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message })
+  }
+}
+
+// ─── GET ALL BOOKINGS (Admin only) ───────────────────────────────────────────
+const getAllBookings = async (req, res) => {
+  try {
+    const bookings = await Availability.find({ isBooked: true })
+      .populate('bookedBy', 'name email')
+      .populate('tutor', 'name email')
+      .sort({ date: 1, startTime: 1 })
+    res.json(bookings)
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to load bookings', error: err.message })
+  }
+}
+
+// ─── BOOK A SLOT (Student/Parent) ────────────────────────────────────────────
+const bookSlot = async (req, res) => {
+  try {
+    const { startTime, date, tutorId } = req.body        // ✅ added tutorId
+    if (!startTime || !date || !tutorId)
+      return res.status(400).json({ message: 'startTime, date and tutorId are required' })
+
+    const bookStart   = toMins(startTime)
+    const bookEnd     = bookStart + 60
+    const bookEndTime = toTime(bookEnd)
+
+    const parentSlot = await Availability.findOne({
+      date,
+      tutor: tutorId,                                    // ✅ scope to chosen tutor
+      slotType: 'available',
+      startTime: { $lte: startTime },
+      endTime:   { $gte: bookEndTime }
+    })
+
+    if (!parentSlot)
+      return res.status(400).json({ message: 'No available slot covers this time' })
+
+    const parentStart = toMins(parentSlot.startTime)
+    const parentEnd   = toMins(parentSlot.endTime)
+    const tutorIdRef  = parentSlot.tutor
+    const dayOfWeek   = parentSlot.dayOfWeek
+    const origId      = parentSlot._id
+
+    await parentSlot.deleteOne()
+
+    const newDocs = []
+
+    // ── Segment BEFORE ───────────────────────────────────────────
+    if (bookStart - 15 > parentStart) {
+      const beforeStart    = parentStart
+      const beforeEnd      = bookStart - 15
+      const beforeDuration = beforeEnd - beforeStart
+      newDocs.push({
+        tutor: tutorIdRef, date, dayOfWeek,
+        startTime: toTime(beforeStart),
+        endTime:   toTime(beforeEnd),
+        slotType:  beforeDuration >= 60 ? 'available' : 'unavailable',
+        parentSlotId: origId,
+        isBooked: false
+      })
+    }
+
+    // ── Buffer BEFORE ────────────────────────────────────────────
+    if (bookStart - 15 >= parentStart) {
+      newDocs.push({
+        tutor: tutorIdRef, date, dayOfWeek,
+        startTime: toTime(Math.max(parentStart, bookStart - 15)),
+        endTime:   toTime(bookStart),
+        slotType:  'buffer',
+        parentSlotId: origId,
+        isBooked: false
+      })
+    }
+
+    // ── The BOOKING itself ───────────────────────────────────────
+    newDocs.push({
+      tutor: tutorIdRef, date, dayOfWeek,
+      startTime: toTime(bookStart),
+      endTime:   toTime(bookEnd),
+      slotType:  'booked',
+      parentSlotId: origId,
+      isBooked: true,
+      bookedBy: req.user.id
+    })
+
+    // ── Buffer AFTER ─────────────────────────────────────────────
+    if (bookEnd + 15 <= parentEnd) {
+      newDocs.push({
+        tutor: tutorIdRef, date, dayOfWeek,
+        startTime: toTime(bookEnd),
+        endTime:   toTime(Math.min(parentEnd, bookEnd + 15)),
+        slotType:  'buffer',
+        parentSlotId: origId,
+        isBooked: false
+      })
+    }
+
+    // ── Segment AFTER ────────────────────────────────────────────
+    if (bookEnd + 15 < parentEnd) {
+      const afterStart    = bookEnd + 15
+      const afterEnd      = parentEnd
+      const afterDuration = afterEnd - afterStart
+      newDocs.push({
+        tutor: tutorIdRef, date, dayOfWeek,
+        startTime: toTime(afterStart),
+        endTime:   toTime(afterEnd),
+        slotType:  afterDuration >= 60 ? 'available' : 'unavailable',
+        parentSlotId: origId,
+        isBooked: false
+      })
+    }
+
+    const created   = await Availability.insertMany(newDocs)
+    const bookedDoc = created.find(d => d.slotType === 'booked')
+
+    res.status(201).json({
+      message: 'Slot booked successfully! 🎉',
+      slot: bookedDoc
+    })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message })
+  }
+}
+
+// ─── CANCEL BOOKING (Student/Parent or Tutor/Admin) ──────────────────────────
+const unbookSlot = async (req, res) => {
+  try {
+    const bookedSlot = await Availability.findById(req.params.id)
+    if (!bookedSlot)
+      return res.status(404).json({ message: 'Booking not found' })
+    if (bookedSlot.slotType !== 'booked')
+      return res.status(400).json({ message: 'This slot is not a booking' })
+
+    if (req.user.role === 'student' || req.user.role === 'parent') {
+      if (bookedSlot.bookedBy.toString() !== req.user.id)
+        return res.status(403).json({ message: 'You can only cancel your own bookings' })
+    }
+
+    const { date, parentSlotId, tutor, dayOfWeek } = bookedSlot
+
+    // ── Step 1: gather siblings (buffer slots) sharing the same parentSlotId ──
+    const siblings = parentSlotId
+      ? await Availability.find({ parentSlotId, date })
+      : []
+
+    // ── Step 2: collapse booking + its buffers into a single freed range ──
+    const freedDocs = [...siblings, bookedSlot]
+    const freedStart = freedDocs.reduce(
+      (min, s) => (toMins(s.startTime) < toMins(min) ? s.startTime : min),
+      freedDocs[0].startTime
+    )
+    const freedEnd = freedDocs.reduce(
+      (max, s) => (toMins(s.endTime) > toMins(max) ? s.endTime : max),
+      freedDocs[0].endTime
+    )
+
+    // ── Step 3: delete siblings + the booking itself ──
+    if (parentSlotId) {
+      await Availability.deleteMany({ parentSlotId, date })
+    }
+    await bookedSlot.deleteOne()
+
+    // ── Step 4: gather other available slots for this tutor/date, plus the freed range ──
+    const existingAvailable = await Availability.find({
+      tutor,
+      date,
+      slotType: 'available'
+    })
+
+    const allRanges = [
+      ...existingAvailable.map(s => ({ startTime: s.startTime, endTime: s.endTime })),
+      { startTime: freedStart, endTime: freedEnd }
+    ].sort((a, b) => toMins(a.startTime) - toMins(b.startTime))
+
+    // ── Step 5: merge ALL adjacent/touching ranges ──
+    const merged = []
+    let current = { startTime: allRanges[0].startTime, endTime: allRanges[0].endTime }
+    for (let i = 1; i < allRanges.length; i++) {
+      const next = allRanges[i]
+      if (toMins(next.startTime) <= toMins(current.endTime)) {
+        if (toMins(next.endTime) > toMins(current.endTime)) {
+          current.endTime = next.endTime
+        }
+      } else {
+        merged.push(current)
+        current = { startTime: next.startTime, endTime: next.endTime }
+      }
+    }
+    merged.push(current)
+
+    // ── Step 6: replace existing available slots with merged result ──
+    await Availability.deleteMany({ tutor, date, slotType: 'available' })
+    await Availability.insertMany(
+      merged.map(m => ({
+        tutor,
+        date,
+        dayOfWeek,
+        startTime:    m.startTime,
+        endTime:      m.endTime,
+        slotType:     'available',
+        parentSlotId: null,
+        isBooked:     false
+      }))
+    )
+
+    res.json({ message: 'Booking cancelled and slot restored ✅' })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message })
+  }
+}
+
+// ─── DELETE A SLOT (Tutor/Admin) ─────────────────────────────────────────────
+const deleteSlot = async (req, res) => {
+  try {
+    const slot = await Availability.findById(req.params.id)
+    if (!slot) return res.status(404).json({ message: 'Slot not found' })
+
+    if (slot.parentSlotId) {
+      await Availability.deleteMany({ parentSlotId: slot.parentSlotId })
+    }
+
+    await slot.deleteOne()
+    res.json({ message: 'Slot deleted successfully' })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message })
+  }
+}
+
+// ─── COPY DAY (Tutor/Admin) ───────────────────────────────────────────────────
+const copyDay = async (req, res) => {
+  const { fromDate, toDate } = req.body
+  try {
+    if (!fromDate || !toDate)
+      return res.status(400).json({ message: 'fromDate and toDate are required' })
+    if (fromDate === toDate)
+      return res.status(400).json({ message: 'From and To dates cannot be the same' })
+
+    const sourceSlots = await Availability.find({ 
+      tutor: req.user.id, 
+      date: fromDate,
+      slotType: 'available'
+    })
+    if (sourceSlots.length === 0)
+      return res.status(404).json({ message: 'No available slots found on the source date' })
+
+    await Availability.deleteMany({ 
+      tutor: req.user.id, 
+      date: toDate, 
+      slotType: { $in: ['available', 'unavailable'] }
+    })
+
+    const dayOfWeek = getDayOfWeek(toDate)
+    const newSlots = await Promise.all(
+      sourceSlots.map(slot =>
+        Availability.create({
+          tutor: req.user.id,
+          date: toDate,
+          dayOfWeek,
+          startTime:    slot.startTime,
+          endTime:      slot.endTime,
+          slotType:     'available',
+          parentSlotId: null,
+          isBooked:     false
+        })
+      )
+    )
+
+    res.status(201).json({
+      message: `Copied ${newSlots.length} slot(s) from ${fromDate} to ${toDate} ✅`,
+      slots: newSlots
+    })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message })
+  }
+}
+
+// ─── EXPORTS ──────────────────────────────────────────────────────────────────
+module.exports = {
+  addSlot,
+  getSlotsByWeek,
+  getAllSlots,
+  getMyBookings,
+  getAllBookings,   // ✅ added
+  bookSlot,
+  unbookSlot,
+  deleteSlot,
+  copyDay
+}
