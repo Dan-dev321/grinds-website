@@ -1,41 +1,46 @@
 const express = require('express')
-const router = express.Router()
-const { protect, adminOnly } = require('../middleware/authMiddleware')
-const User = require('../models/User')
-const Availability = require('../models/Availability')
-const Feedback = require('../models/Feedback')
-const { getStats, getStudentStats, getTutorStats } = require('../controllers/adminController')
+const router  = express.Router()
 
-// GET /api/admin/stats
-router.get('/stats',                protect, adminOnly, getStats)
+const { protect, ownerOnly } = require('../middleware/authMiddleware')
+const { getStats, getTutorStats, getStudentStats, toggleTutorActive } = require('../controllers/adminController')
 
-// GET /api/admin/stats/student/:id
-router.get('/stats/student/:id',    protect, adminOnly, getStudentStats)
+// ── Platform stats overview ───────────────────────────────────
+router.get('/stats',                 protect, ownerOnly, getStats)
 
-// GET /api/admin/stats/tutor/:id
-router.get('/stats/tutor/:id',      protect, adminOnly, getTutorStats)
+// ── Per-tutor stats ───────────────────────────────────────────
+router.get('/stats/tutor/:id',       protect, ownerOnly, getTutorStats)
 
-// GET /api/admin/users
-router.get('/users', protect, adminOnly, async (req, res) => {
+// ── Per-student stats ─────────────────────────────────────────
+router.get('/stats/student/:id',     protect, ownerOnly, getStudentStats)
+
+// ── List all tutors ───────────────────────────────────────────
+router.get('/tutors',                protect, ownerOnly, async (req, res) => {
   try {
-    const users = await User.find().select('-password').sort({ createdAt: -1 })
-    res.json(users)
+    const Tutor = require('../models/Tutor')
+    const tutors = await Tutor.find()
+      .select('-password')
+      .sort({ createdAt: -1 })
+    res.json(tutors)
   } catch (err) {
-    res.status(500).json({ message: 'Failed to load users' })
+    res.status(500).json({ message: 'Failed to load tutors' })
   }
 })
 
-// DELETE /api/admin/users/:id
-router.delete('/users/:id', protect, adminOnly, async (req, res) => {
+// ── List all students ─────────────────────────────────────────
+router.get('/students',              protect, ownerOnly, async (req, res) => {
   try {
-    const user = await User.findById(req.params.id)
-    if (!user) return res.status(404).json({ message: 'User not found' })
-    if (user.role === 'admin') return res.status(403).json({ message: 'Cannot delete admin accounts' })
-    await User.findByIdAndDelete(req.params.id)
-    res.json({ message: 'User deleted' })
+    const Student = require('../models/Student')
+    const students = await Student.find()
+      .select('-password')
+      .populate('tutorId', 'name email')
+      .sort({ createdAt: -1 })
+    res.json(students)
   } catch (err) {
-    res.status(500).json({ message: 'Failed to delete user' })
+    res.status(500).json({ message: 'Failed to load students' })
   }
 })
+
+// ── Enable / disable a tutor account ─────────────────────────
+router.patch('/tutors/:id/toggle',   protect, ownerOnly, toggleTutorActive)
 
 module.exports = router

@@ -1,45 +1,51 @@
-const User = require('../models/User')
+const Tutor        = require('../models/Tutor')
+const Student      = require('../models/Student')
 const Availability = require('../models/Availability')
+const mongoose     = require('mongoose')
 
-// ─────────────────────────────────────────────
-//  GET /api/admin/stats  →  dashboard overview
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+//  GET /api/admin/stats  →  platform overview for Owner
+// ─────────────────────────────────────────────────────────────
 const getStats = async (req, res) => {
   try {
-    const now = new Date()
-    const dayOfWeek = now.getDay()
-    const diffToMon = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
+    const now      = new Date()
+    const todayStr = now.toISOString().split('T')[0]
+
+    // Week boundaries (Mon–Sun)
+    const diffToMon = now.getDay() === 0 ? -6 : 1 - now.getDay()
     const weekStart = new Date(now)
     weekStart.setDate(now.getDate() + diffToMon)
     const weekEnd = new Date(weekStart)
     weekEnd.setDate(weekStart.getDate() + 6)
+    const weekStartStr = weekStart.toISOString().split('T')[0]
+    const weekEndStr   = weekEnd.toISOString().split('T')[0]
 
-    const toDateStr = (d) => d.toISOString().split('T')[0]
-    const weekStartStr = toDateStr(weekStart)
-    const weekEndStr   = toDateStr(weekEnd)
-
-    const [totalStudents, totalTutors, totalAdmins] = await Promise.all([
-      User.countDocuments({ role: 'student' }),
-      User.countDocuments({ role: 'tutor'   }),
-      User.countDocuments({ role: 'admin'   }),
+    const [
+      totalTutors,
+      activeTutors,
+      trialTutors,
+      totalStudents,
+    ] = await Promise.all([
+      Tutor.countDocuments(),
+      Tutor.countDocuments({ 'subscription.status': 'active' }),
+      Tutor.countDocuments({ 'subscription.status': 'trial'  }),
+      Student.countDocuments(),
     ])
 
-    const activeStudentIds = await Availability.distinct('bookedBy', {
-      slotType: 'booked',
-      bookedBy: { $ne: null },
-    })
-    const activeStudents = activeStudentIds.length
-
+    // Session stats from Availability
     const [sessionStats] = await Availability.aggregate([
       { $match: { slotType: 'booked' } },
       {
         $facet: {
-          bookedThisWeek:    [{ $match: { date: { $gte: weekStartStr, $lte: weekEndStr } } }, { $count: 'count' }],
-          completedThisWeek: [{ $match: { date: { $gte: weekStartStr, $lte: weekEndStr }, status: 'completed' } }, { $count: 'count' }],
-          noShowsThisWeek:   [{ $match: { date: { $gte: weekStartStr, $lte: weekEndStr }, status: 'no-show'   } }, { $count: 'count' }],
           totalSessions:     [{ $count: 'count' }],
           totalCompleted:    [{ $match: { status: 'completed' } }, { $count: 'count' }],
           totalNoShows:      [{ $match: { status: 'no-show'   } }, { $count: 'count' }],
+          bookedThisWeek:    [{ $match: { date: { $gte: weekStartStr, $lte: weekEndStr } } }, { $count: 'count' }],
+          completedThisWeek: [
+            { $match: { date: { $gte: weekStartStr, $lte: weekEndStr }, status: 'completed' } },
+            { $count: 'count' },
+          ],
+          todaysSessions:    [{ $match: { date: todayStr } }, { $count: 'count' }],
         },
       },
     ])
@@ -47,102 +53,36 @@ const getStats = async (req, res) => {
     const pluck = (arr) => arr?.[0]?.count ?? 0
 
     res.json({
-      totalStudents,
+      // Tutor counts
       totalTutors,
-      totalAdmins,
-      activeStudents,
-      bookedThisWeek:    pluck(sessionStats.bookedThisWeek),
-      completedThisWeek: pluck(sessionStats.completedThisWeek),
-      noShowsThisWeek:   pluck(sessionStats.noShowsThisWeek),
+      activeTutors,
+      trialTutors,
+      cancelledTutors: totalTutors - activeTutors - trialTutors,
+
+      // Student counts
+      totalStudents,
+
+      // Session counts
       totalSessions:     pluck(sessionStats.totalSessions),
       totalCompleted:    pluck(sessionStats.totalCompleted),
       totalNoShows:      pluck(sessionStats.totalNoShows),
+      bookedThisWeek:    pluck(sessionStats.bookedThisWeek),
+      completedThisWeek: pluck(sessionStats.completedThisWeek),
+      todaysSessions:    pluck(sessionStats.todaysSessions),
     })
   } catch (err) {
     console.error('getStats error:', err)
-    res.status(500).json({ message: 'Failed to load stats' })
+    res.status(500).json({ message: 'Failed to load platform stats' })
   }
 }
 
-// ─────────────────────────────────────────────
-//  GET /api/admin/stats/student/:id
-// ─────────────────────────────────────────────
-const getStudentStats = async (req, res) => {
-  try {
-    const { id } = req.params
-    const todayStr = new Date().toISOString().split('T')[0]
-
-    // Week boundaries
-    const now = new Date()
-    const diffToMon = now.getDay() === 0 ? -6 : 1 - now.getDay()
-    const weekStart = new Date(now)
-    weekStart.setDate(now.getDate() + diffToMon)
-    const weekEnd = new Date(weekStart)
-    weekEnd.setDate(weekStart.getDate() + 6)
-    const weekStartStr = weekStart.toISOString().split('T')[0]
-    const weekEndStr   = weekEnd.toISOString().split('T')[0]
-
-    const mongoose = require('mongoose')
-    const studentObjId = new mongoose.Types.ObjectId(id)
-
-    const [sessionStats] = await Availability.aggregate([
-      { $match: { slotType: 'booked', bookedBy: studentObjId } },
-      {
-        $facet: {
-          total:        [{ $count: 'count' }],
-          upcoming:     [{ $match: { date: { $gte: todayStr } } }, { $count: 'count' }],
-          completed:    [{ $match: { status: 'completed' } }, { $count: 'count' }],
-          noShows:      [{ $match: { status: 'no-show'   } }, { $count: 'count' }],
-          thisWeek:     [{ $match: { date: { $gte: weekStartStr, $lte: weekEndStr } } }, { $count: 'count' }],
-          // Group by tutor to find favourite
-          byTutor:      [{ $group: { _id: '$tutor', count: { $sum: 1 } } }, { $sort: { count: -1 } }, { $limit: 1 }],
-          // Last 5 sessions
-          recent:       [{ $sort: { date: -1, startTime: -1 } }, { $limit: 5 },
-                         { $lookup: { from: 'users', localField: 'tutor', foreignField: '_id', as: 'tutorInfo' } }],
-        },
-      },
-    ])
-
-    const pluck = (arr) => arr?.[0]?.count ?? 0
-
-    // Resolve favourite tutor name
-    let favouriteTutor = 'N/A'
-    if (sessionStats.byTutor?.[0]?._id) {
-      const tutor = await User.findById(sessionStats.byTutor[0]._id).select('name')
-      if (tutor) favouriteTutor = tutor.name
-    }
-
-    // Clean up recent sessions
-    const recentSessions = (sessionStats.recent || []).map(s => ({
-      date:      s.date,
-      startTime: s.startTime,
-      endTime:   s.endTime,
-      status:    s.status,
-      tutor:     s.tutorInfo?.[0]?.name || 'Unknown',
-    }))
-
-    res.json({
-      totalSessions:  pluck(sessionStats.total),
-      upcoming:       pluck(sessionStats.upcoming),
-      completed:      pluck(sessionStats.completed),
-      noShows:        pluck(sessionStats.noShows),
-      thisWeek:       pluck(sessionStats.thisWeek),
-      favouriteTutor,
-      recentSessions,
-    })
-  } catch (err) {
-    console.error('getStudentStats error:', err)
-    res.status(500).json({ message: 'Failed to load student stats' })
-  }
-}
-
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 //  GET /api/admin/stats/tutor/:id
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 const getTutorStats = async (req, res) => {
   try {
-    const { id } = req.params
-    const todayStr = new Date().toISOString().split('T')[0]
+    const tutorObjId = new mongoose.Types.ObjectId(req.params.id)
+    const todayStr   = new Date().toISOString().split('T')[0]
 
     const now = new Date()
     const diffToMon = now.getDay() === 0 ? -6 : 1 - now.getDay()
@@ -153,32 +93,36 @@ const getTutorStats = async (req, res) => {
     const weekStartStr = weekStart.toISOString().split('T')[0]
     const weekEndStr   = weekEnd.toISOString().split('T')[0]
 
-    const mongoose = require('mongoose')
-    const tutorObjId = new mongoose.Types.ObjectId(id)
+    const tutor = await Tutor.findById(tutorObjId).select('-password')
+    if (!tutor) return res.status(404).json({ message: 'Tutor not found' })
+
+    const studentCount = await Student.countDocuments({ tutorId: tutorObjId })
 
     const [sessionStats] = await Availability.aggregate([
-      { $match: { slotType: 'booked', tutor: tutorObjId } },
+      { $match: { tutorId: tutorObjId, slotType: 'booked' } },
       {
         $facet: {
           total:     [{ $count: 'count' }],
           upcoming:  [{ $match: { date: { $gte: todayStr } } }, { $count: 'count' }],
           completed: [{ $match: { status: 'completed' } }, { $count: 'count' }],
           noShows:   [{ $match: { status: 'no-show'   } }, { $count: 'count' }],
-          thisWeek:  [{ $match: { date: { $gte: weekStartStr, $lte: weekEndStr } } }, { $count: 'count' }],
-          // Unique students
-          uniqueStudents: [{ $group: { _id: '$bookedBy' } }, { $count: 'count' }],
-          // Last 5 sessions
-          recent: [{ $sort: { date: -1, startTime: -1 } }, { $limit: 5 },
-                   { $lookup: { from: 'users', localField: 'bookedBy', foreignField: '_id', as: 'studentInfo' } }],
+          thisWeek:  [
+            { $match: { date: { $gte: weekStartStr, $lte: weekEndStr } } },
+            { $count: 'count' },
+          ],
+          recent: [
+            { $sort: { date: -1 } },
+            { $limit: 5 },
+            { $lookup: {
+                from:         'students',
+                localField:   'studentId',
+                foreignField: '_id',
+                as:           'studentInfo',
+            }},
+          ],
         },
       },
     ])
-
-    // Total slots created (available + booked) — separate query, different base match
-    const totalSlotsCreated = await Availability.countDocuments({
-      tutor: tutorObjId,
-      slotType: { $in: ['available', 'booked'] },
-    })
 
     const pluck = (arr) => arr?.[0]?.count ?? 0
 
@@ -191,13 +135,21 @@ const getTutorStats = async (req, res) => {
     }))
 
     res.json({
-      totalSlotsCreated,
+      tutor: {
+        name:         tutor.name,
+        email:        tutor.email,
+        businessName: tutor.businessName,
+        inviteCode:   tutor.inviteCode,
+        isActive:     tutor.isActive,
+        subscription: tutor.subscription,
+        createdAt:    tutor.createdAt,
+      },
+      studentCount,
       totalSessions:  pluck(sessionStats.total),
       upcoming:       pluck(sessionStats.upcoming),
       completed:      pluck(sessionStats.completed),
       noShows:        pluck(sessionStats.noShows),
       thisWeek:       pluck(sessionStats.thisWeek),
-      uniqueStudents: pluck(sessionStats.uniqueStudents),
       recentSessions,
     })
   } catch (err) {
@@ -206,4 +158,76 @@ const getTutorStats = async (req, res) => {
   }
 }
 
-module.exports = { getStats, getStudentStats, getTutorStats }
+// ─────────────────────────────────────────────────────────────
+//  GET /api/admin/stats/student/:id
+// ─────────────────────────────────────────────────────────────
+const getStudentStats = async (req, res) => {
+  try {
+    const studentObjId = new mongoose.Types.ObjectId(req.params.id)
+    const todayStr     = new Date().toISOString().split('T')[0]
+
+    const student = await Student.findById(studentObjId)
+      .select('-password')
+      .populate('tutorId', 'name email')
+    if (!student) return res.status(404).json({ message: 'Student not found' })
+
+    const [sessionStats] = await Availability.aggregate([
+      { $match: { studentId: studentObjId, slotType: 'booked' } },
+      {
+        $facet: {
+          total:     [{ $count: 'count' }],
+          upcoming:  [{ $match: { date: { $gte: todayStr } } }, { $count: 'count' }],
+          completed: [{ $match: { status: 'completed' } }, { $count: 'count' }],
+          noShows:   [{ $match: { status: 'no-show'   } }, { $count: 'count' }],
+          recent: [
+            { $sort: { date: -1 } },
+            { $limit: 5 },
+          ],
+        },
+      },
+    ])
+
+    const pluck = (arr) => arr?.[0]?.count ?? 0
+
+    res.json({
+      student: {
+        name:      student.name,
+        email:     student.email,
+        tutor:     student.tutorId,
+        createdAt: student.createdAt,
+      },
+      totalSessions: pluck(sessionStats.total),
+      upcoming:      pluck(sessionStats.upcoming),
+      completed:     pluck(sessionStats.completed),
+      noShows:       pluck(sessionStats.noShows),
+      recentSessions: sessionStats.recent || [],
+    })
+  } catch (err) {
+    console.error('getStudentStats error:', err)
+    res.status(500).json({ message: 'Failed to load student stats' })
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  PATCH /api/admin/tutors/:id/toggle
+//  Owner can enable/disable a tutor account
+// ─────────────────────────────────────────────────────────────
+const toggleTutorActive = async (req, res) => {
+  try {
+    const tutor = await Tutor.findById(req.params.id)
+    if (!tutor) return res.status(404).json({ message: 'Tutor not found' })
+
+    tutor.isActive = !tutor.isActive
+    await tutor.save()
+
+    res.json({
+      message:  `Tutor ${tutor.isActive ? 'enabled' : 'disabled'} successfully`,
+      isActive: tutor.isActive,
+    })
+  } catch (err) {
+    console.error('toggleTutorActive error:', err)
+    res.status(500).json({ message: 'Failed to toggle tutor status' })
+  }
+}
+
+module.exports = { getStats, getTutorStats, getStudentStats, toggleTutorActive }
