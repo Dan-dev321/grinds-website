@@ -39,14 +39,19 @@ const completeSession = async (req, res) => {
       })
     }
 
-    // Check if an entry for this date already exists (avoid duplicates)
-    const alreadyExists = note.entries.some(e => e.date === slot.date)
+    // ── Check by date AND startTime to allow multiple same-day sessions ──
+    const alreadyExists = note.entries.some(
+      e => e.date === slot.date && e.startTime === slot.startTime
+    )
+
     if (!alreadyExists) {
       // Add new entry at the FRONT (most recent first)
       note.entries.unshift({
-        date: slot.date,
+        date:      slot.date,
         dayOfWeek: getDayOfWeek(slot.date),
-        content: ''
+        startTime: slot.startTime,
+        endTime:   slot.endTime,
+        content:   ''
       })
     }
 

@@ -1,9 +1,11 @@
 const mongoose = require('mongoose')
 
 const sessionEntrySchema = new mongoose.Schema({
-  date: { type: String, required: true },        // "YYYY-MM-DD"
+  date: { type: String, required: true },
   dayOfWeek: { type: String, required: true },
-  content: { type: String, default: '' },        // rich text stored as HTML string
+  startTime: { type: String, default: '' },
+  endTime: { type: String, default: '' },
+  content: { type: String, default: '' },
 }, { timestamps: true })
 
 const noteSchema = new mongoose.Schema({

@@ -73,7 +73,7 @@ const SessionEntry = ({ entry, tutorId, studentId, token, onSaved }) => {
       <div className="flex items-center gap-3 mb-3">
         <div className="flex-1 h-px bg-gray-200" />
         <span className="text-xs font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap">
-          {entry.dayOfWeek} — {formatDisplay(entry.date)}
+          {entry.dayOfWeek} — {formatDisplay(entry.date)} · {entry.startTime}–{entry.endTime}
         </span>
         <div className="flex-1 h-px bg-gray-200" />
       </div>
