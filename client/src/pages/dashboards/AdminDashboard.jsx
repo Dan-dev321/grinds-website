@@ -3,7 +3,6 @@ import { useAuth } from '../../context/AuthContext'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 
-//const API = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 const API = import.meta.env.VITE_API_URL
 
 const formatDisplay = (dateStr) => {
@@ -18,21 +17,23 @@ const formatJoined = (dateStr) =>
     day: 'numeric', month: 'short', year: 'numeric'
   })
 
-// ── Tabs for the main panel ───────────────────────────────────
 const TABS = ['Bookings', 'Users', 'Reviews']
 
 const AdminDashboard = () => {
   const { user, token } = useAuth()
   const authHeader = { headers: { Authorization: `Bearer ${token}` } }
 
-  const [stats, setStats]         = useState(null)
-  const [users, setUsers]         = useState([])
-  const [bookings, setBookings]   = useState([])
-  const [feedback, setFeedback]   = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [activeTab, setActiveTab] = useState('Bookings')
-  const [success, setSuccess]     = useState('')
-  const [error, setError]         = useState('')
+  const [stats, setStats]               = useState(null)
+  const [users, setUsers]               = useState([])
+  const [bookings, setBookings]         = useState([])
+  const [feedback, setFeedback]         = useState([])
+  const [loading, setLoading]           = useState(true)
+  const [activeTab, setActiveTab]       = useState('Bookings')
+  const [success, setSuccess]           = useState('')
+  const [error, setError]               = useState('')
+  const [selectedUser, setSelectedUser] = useState(null)
+  const [userStats, setUserStats]       = useState(null)
+  const [modalLoading, setModalLoading] = useState(false)
 
   const flashSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3500) }
   const flashError   = (msg) => { setError(msg);   setTimeout(() => setError(''),   3500) }
@@ -106,24 +107,220 @@ const AdminDashboard = () => {
     }
   }
 
+  // ── Open user detail modal ────────────────────────────────────
+  const handleViewUser = async (u) => {
+    setSelectedUser(u)
+    setUserStats(null)
+    setModalLoading(true)
+    try {
+      const endpoint = u.role === 'tutor'
+        ? `${API}/api/admin/stats/tutor/${u._id}`
+        : `${API}/api/admin/stats/student/${u._id}`
+      const res = await axios.get(endpoint, authHeader)
+      setUserStats(res.data)
+    } catch (err) {
+      flashError('Failed to load user stats')
+      setSelectedUser(null)
+    } finally {
+      setModalLoading(false)
+    }
+  }
+
   // ── Derived ───────────────────────────────────────────────────
-  const todayStr    = new Date().toISOString().split('T')[0]
-  const upcoming    = bookings.filter(b => b.date >= todayStr)
+  const todayStr         = new Date().toISOString().split('T')[0]
+  const upcoming         = bookings.filter(b => b.date >= todayStr)
     .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
-  const past        = bookings.filter(b => b.date < todayStr)
+  const past             = bookings.filter(b => b.date < todayStr)
     .sort((a, b) => b.date.localeCompare(a.date))
   const pendingFeedback  = feedback.filter(f => !f.approved)
-  const approvedFeedback = feedback.filter(f => f.approved)
+  const approvedFeedback = feedback.filter(f =>  f.approved)
 
-  const statCards = [
-    { label: 'Total Users',     value: stats?.totalUsers    ?? '…', icon: '👥', color: 'border-blue-400' },
-    { label: 'Total Bookings',  value: stats?.totalBookings ?? '…', icon: '📅', color: 'border-blue-500' },
-    { label: 'Pending Reviews', value: stats?.pendingReviews ?? '…', icon: '⭐', color: 'border-yellow-400' },
-    { label: 'Active Slots',    value: stats?.activeSlots   ?? '…', icon: '🟢', color: 'border-green-400' },
+  // ── Stat rows (overview) ──────────────────────────────────────
+  const statRows = [
+    {
+      heading: '👥 People',
+      cards: [
+        { label: 'Total Students',  value: stats?.totalStudents  ?? '…', icon: '🎓', color: 'border-blue-400' },
+        { label: 'Total Tutors',    value: stats?.totalTutors    ?? '…', icon: '🧑‍🏫', color: 'border-blue-500' },
+        { label: 'Active Students', value: stats?.activeStudents ?? '…', icon: '⚡', color: 'border-indigo-400',
+          tip: 'Had ≥ 1 session ever' },
+      ],
+    },
+    {
+      heading: '📅 This Week',
+      cards: [
+        { label: 'Sessions Booked', value: stats?.bookedThisWeek    ?? '…', icon: '📅', color: 'border-green-400' },
+        { label: 'Completed',       value: stats?.completedThisWeek ?? '…', icon: '✅', color: 'border-green-500' },
+        { label: 'No-Shows',        value: stats?.noShowsThisWeek   ?? '…', icon: '❌', color: 'border-red-400'   },
+      ],
+    },
+    {
+      heading: '📈 All Time',
+      cards: [
+        { label: 'Total Sessions',  value: stats?.totalSessions  ?? '…', icon: '📊', color: 'border-purple-400' },
+        { label: 'Completed',       value: stats?.totalCompleted ?? '…', icon: '✅', color: 'border-purple-500' },
+        { label: 'No-Shows',        value: stats?.totalNoShows   ?? '…', icon: '❌', color: 'border-red-400'    },
+      ],
+    },
   ]
+
+  // ── User Detail Modal ─────────────────────────────────────────
+  const UserStatsModal = () => {
+    if (!selectedUser) return null
+
+    const isStudent = selectedUser.role === 'student'
+
+    const statusPill = (status) => {
+      if (status === 'completed') return <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-semibold">Completed</span>
+      if (status === 'no-show')   return <span className="text-xs bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-semibold">No-show</span>
+      return <span className="text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-semibold">Upcoming</span>
+    }
+
+    const modalStatRows = isStudent ? [
+      {
+        heading: '📅 Sessions',
+        cards: [
+          { label: 'Total Booked', value: userStats?.totalSessions ?? '…', icon: '📅', color: 'border-blue-400'   },
+          { label: 'Upcoming',     value: userStats?.upcoming       ?? '…', icon: '🔜', color: 'border-indigo-400' },
+          { label: 'This Week',    value: userStats?.thisWeek       ?? '…', icon: '📆', color: 'border-blue-300'   },
+        ],
+      },
+      {
+        heading: '📈 Outcomes',
+        cards: [
+          { label: 'Completed',    value: userStats?.completed      ?? '…', icon: '✅', color: 'border-green-400'  },
+          { label: 'No-Shows',     value: userStats?.noShows        ?? '…', icon: '❌', color: 'border-red-400'    },
+          { label: 'Fav. Tutor',   value: userStats?.favouriteTutor ?? '…', icon: '🧑‍🏫', color: 'border-purple-400', small: true },
+        ],
+      },
+    ] : [
+      {
+        heading: '📅 Sessions',
+        cards: [
+          { label: 'Total Taught',  value: userStats?.totalSessions  ?? '…', icon: '📅', color: 'border-blue-400'   },
+          { label: 'Upcoming',      value: userStats?.upcoming        ?? '…', icon: '🔜', color: 'border-indigo-400' },
+          { label: 'This Week',     value: userStats?.thisWeek        ?? '…', icon: '📆', color: 'border-blue-300'   },
+        ],
+      },
+      {
+        heading: '📈 Outcomes',
+        cards: [
+          { label: 'Completed',       value: userStats?.completed       ?? '…', icon: '✅', color: 'border-green-400'  },
+          { label: 'No-Shows',        value: userStats?.noShows         ?? '…', icon: '❌', color: 'border-red-400'    },
+          { label: 'Unique Students', value: userStats?.uniqueStudents  ?? '…', icon: '🎓', color: 'border-purple-400' },
+        ],
+      },
+      {
+        heading: '🗓️ Slots',
+        cards: [
+          { label: 'Slots Created', value: userStats?.totalSlotsCreated ?? '…', icon: '🟢', color: 'border-green-300' },
+        ],
+      },
+    ]
+
+    return (
+      <div
+        className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
+        onClick={() => setSelectedUser(null)}
+      >
+        <div
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+          onClick={e => e.stopPropagation()}
+        >
+          {/* Modal Header */}
+          <div className={`p-6 rounded-t-2xl ${isStudent ? 'bg-gray-700' : 'bg-blue-700'} text-white`}>
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-4">
+                <div className="text-4xl">{isStudent ? '🎓' : '🧑‍🏫'}</div>
+                <div>
+                  <h2 className="text-2xl font-extrabold">{selectedUser.name}</h2>
+                  <p className="text-sm opacity-80">{selectedUser.email}</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs bg-white/20 px-2 py-0.5 rounded-full font-semibold capitalize">
+                      {selectedUser.role}
+                    </span>
+                    <span className="text-xs opacity-70">
+                      Joined {formatJoined(selectedUser.createdAt)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedUser(null)}
+                className="text-white/70 hover:text-white text-2xl font-bold leading-none"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+
+          {/* Modal Body */}
+          <div className="p-6">
+            {modalLoading ? (
+              <div className="text-center py-12 text-gray-400">
+                <div className="text-4xl mb-3">⏳</div>
+                <p>Loading stats...</p>
+              </div>
+            ) : (
+              <>
+                {/* Stat rows */}
+                <div className="flex flex-col gap-4 mb-6">
+                  {modalStatRows.map((row, ri) => (
+                    <div key={ri}>
+                      <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">
+                        {row.heading}
+                      </p>
+                      <div className={`grid gap-3 ${row.cards.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
+                        {row.cards.map((card, ci) => (
+                          <div key={ci} className={`bg-gray-50 rounded-xl p-4 text-center border-t-4 ${card.color}`}>
+                            <div className="text-2xl mb-1">{card.icon}</div>
+                            <p className={`font-extrabold text-blue-700 ${card.small ? 'text-base' : 'text-2xl'}`}>
+                              {card.value}
+                            </p>
+                            <p className="text-gray-500 text-xs mt-0.5">{card.label}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Recent sessions */}
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-3">
+                    🕐 Recent Sessions (last 5)
+                  </p>
+                  {userStats?.recentSessions?.length === 0 ? (
+                    <p className="text-gray-400 text-sm text-center py-4">No sessions yet.</p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {userStats?.recentSessions?.map((s, i) => (
+                        <div key={i}
+                          className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 border border-gray-100">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-800">{formatDisplay(s.date)}</p>
+                            <p className="text-xs text-gray-500">
+                              {s.startTime} – {s.endTime}
+                              {isStudent ? ` · Tutor: ${s.tutor}` : ` · Student: ${s.student}`}
+                            </p>
+                          </div>
+                          {statusPill(s.status)}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
+      <UserStatsModal />
       <div className="max-w-6xl mx-auto">
 
         {/* ======= WELCOME HEADER ======= */}
@@ -153,13 +350,25 @@ const AdminDashboard = () => {
           </div>
         )}
 
-        {/* ======= STATS ROW ======= */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-          {statCards.map((stat, i) => (
-            <div key={i} className={`bg-white rounded-2xl shadow-sm p-5 text-center border-t-4 ${stat.color}`}>
-              <div className="text-3xl mb-1">{stat.icon}</div>
-              <p className="text-3xl font-extrabold text-blue-700">{stat.value}</p>
-              <p className="text-gray-500 text-xs mt-1">{stat.label}</p>
+        {/* ======= STATS ROWS ======= */}
+        <div className="flex flex-col gap-4 mb-8">
+          {statRows.map((row, ri) => (
+            <div key={ri}>
+              <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 pl-1">
+                {row.heading}
+              </h2>
+              <div className="grid grid-cols-3 gap-4">
+                {row.cards.map((stat, i) => (
+                  <div key={i} className={`bg-white rounded-2xl shadow-sm p-5 text-center border-t-4 ${stat.color}`}>
+                    <div className="text-3xl mb-1">{stat.icon}</div>
+                    <p className="text-3xl font-extrabold text-blue-700">{stat.value}</p>
+                    <p className="text-gray-500 text-xs mt-1">{stat.label}</p>
+                    {stat.tip && (
+                      <p className="text-gray-400 text-xs mt-0.5 italic">{stat.tip}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>
@@ -169,7 +378,6 @@ const AdminDashboard = () => {
           <h2 className="text-xl font-bold text-gray-800 mb-4">⚡ Quick Actions</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
 
-            {/* Users */}
             <button
               onClick={() => setActiveTab('Users')}
               className="bg-white rounded-2xl shadow-sm p-6 border-t-4 border-blue-400 hover:shadow-md transition text-left"
@@ -177,11 +385,10 @@ const AdminDashboard = () => {
               <div className="text-3xl mb-3">👥</div>
               <h3 className="font-bold text-gray-800 mb-1">Manage Users</h3>
               <p className="text-gray-500 text-sm">
-                {stats ? `${stats.totalUsers} registered users` : 'View, edit or remove user accounts'}
+                {stats ? `${stats.totalStudents + stats.totalTutors} registered users` : 'View, edit or remove user accounts'}
               </p>
             </button>
 
-            {/* Bookings */}
             <button
               onClick={() => setActiveTab('Bookings')}
               className="bg-white rounded-2xl shadow-sm p-6 border-t-4 border-blue-500 hover:shadow-md transition text-left"
@@ -189,11 +396,10 @@ const AdminDashboard = () => {
               <div className="text-3xl mb-3">📅</div>
               <h3 className="font-bold text-gray-800 mb-1">Manage Bookings</h3>
               <p className="text-gray-500 text-sm">
-                {stats ? `${stats.totalBookings} total bookings` : 'View and manage all session bookings'}
+                {stats ? `${stats.totalSessions} total sessions` : 'View and manage all session bookings'}
               </p>
             </button>
 
-            {/* Reviews */}
             <button
               onClick={() => setActiveTab('Reviews')}
               className="bg-white rounded-2xl shadow-sm p-6 border-t-4 border-yellow-400 hover:shadow-md transition text-left"
@@ -212,7 +418,6 @@ const AdminDashboard = () => {
               )}
             </button>
 
-            {/* Availability */}
             <Link
               to="/availability"
               className="bg-white rounded-2xl shadow-sm p-6 border-t-4 border-green-400 hover:shadow-md transition"
@@ -222,7 +427,6 @@ const AdminDashboard = () => {
               <p className="text-gray-500 text-sm">Set and edit tutor availability slots</p>
             </Link>
 
-            {/* Reports — visual only */}
             <div className="bg-white rounded-2xl shadow-sm p-6 border-t-4 border-purple-400 opacity-60 cursor-not-allowed">
               <div className="text-3xl mb-3">📊</div>
               <h3 className="font-bold text-gray-800 mb-1">View Reports</h3>
@@ -232,7 +436,6 @@ const AdminDashboard = () => {
               </span>
             </div>
 
-            {/* Settings — visual only */}
             <div className="bg-white rounded-2xl shadow-sm p-6 border-t-4 border-gray-400 opacity-60 cursor-not-allowed">
               <div className="text-3xl mb-3">⚙️</div>
               <h3 className="font-bold text-gray-800 mb-1">Site Settings</h3>
@@ -248,7 +451,6 @@ const AdminDashboard = () => {
         {/* ======= TABBED PANEL ======= */}
         <div className="bg-white rounded-2xl shadow-sm mb-8 overflow-hidden">
 
-          {/* Tab bar */}
           <div className="flex border-b border-gray-100">
             {TABS.map(tab => (
               <button
@@ -286,7 +488,6 @@ const AdminDashboard = () => {
                   </div>
                 ) : (
                   <div>
-                    {/* Upcoming */}
                     <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">
                       Upcoming ({upcoming.length})
                     </h3>
@@ -305,9 +506,7 @@ const AdminDashboard = () => {
                                 <p className="text-xs text-orange-600 font-medium">
                                   Student: {slot.bookedBy?.name} — {slot.bookedBy?.email}
                                 </p>
-                                <p className="text-xs text-gray-400">
-                                  Tutor: {slot.tutor?.name}
-                                </p>
+                                <p className="text-xs text-gray-400">Tutor: {slot.tutor?.name}</p>
                               </div>
                             </div>
                             <button onClick={() => handleUnbook(slot._id)}
@@ -319,7 +518,6 @@ const AdminDashboard = () => {
                       </div>
                     )}
 
-                    {/* Past */}
                     {past.length > 0 && (
                       <>
                         <h3 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">
@@ -364,8 +562,8 @@ const AdminDashboard = () => {
                     {users.map(u => (
                       <div key={u._id}
                         className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl px-5 py-4 border ${
-                          u.role === 'admin'  ? 'bg-red-50 border-red-200' :
-                          u.role === 'tutor'  ? 'bg-blue-50 border-blue-200' :
+                          u.role === 'admin' ? 'bg-red-50 border-red-200' :
+                          u.role === 'tutor' ? 'bg-blue-50 border-blue-200' :
                           'bg-gray-50 border-gray-200'
                         }`}>
                         <div className="flex items-center gap-4">
@@ -389,14 +587,24 @@ const AdminDashboard = () => {
                             </div>
                           </div>
                         </div>
-                        {u.role !== 'admin' && (
-                          <button
-                            onClick={() => handleDeleteUser(u._id, u.name)}
-                            className="bg-red-100 text-red-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-red-200 transition self-start sm:self-auto"
-                          >
-                            Delete
-                          </button>
-                        )}
+                        <div className="flex gap-2 self-start sm:self-auto">
+                          {(u.role === 'student' || u.role === 'tutor') && (
+                            <button
+                              onClick={() => handleViewUser(u)}
+                              className="bg-blue-100 text-blue-700 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-blue-200 transition"
+                            >
+                              View Stats 📊
+                            </button>
+                          )}
+                          {u.role !== 'admin' && (
+                            <button
+                              onClick={() => handleDeleteUser(u._id, u.name)}
+                              className="bg-red-100 text-red-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-red-200 transition"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -418,7 +626,6 @@ const AdminDashboard = () => {
                   </div>
                 ) : (
                   <div>
-                    {/* Pending */}
                     {pendingFeedback.length > 0 && (
                       <>
                         <h3 className="text-sm font-bold text-yellow-700 uppercase tracking-wide mb-3">
@@ -457,7 +664,6 @@ const AdminDashboard = () => {
                       </>
                     )}
 
-                    {/* Approved */}
                     {approvedFeedback.length > 0 && (
                       <>
                         <h3 className="text-sm font-bold text-green-700 uppercase tracking-wide mb-3">

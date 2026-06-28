@@ -4,20 +4,16 @@ const { protect, adminOnly } = require('../middleware/authMiddleware')
 const User = require('../models/User')
 const Availability = require('../models/Availability')
 const Feedback = require('../models/Feedback')
+const { getStats, getStudentStats, getTutorStats } = require('../controllers/adminController')
 
 // GET /api/admin/stats
-router.get('/stats', protect, adminOnly, async (req, res) => {
-  try {
-    const totalUsers    = await User.countDocuments()
-    const totalBookings = await Availability.countDocuments({ isBooked: true })
-    const pendingReviews = await Feedback.countDocuments({ approved: false })
-    const activeSlots   = await Availability.countDocuments({ slotType: 'available' })
+router.get('/stats',                protect, adminOnly, getStats)
 
-    res.json({ totalUsers, totalBookings, pendingReviews, activeSlots })
-  } catch (err) {
-    res.status(500).json({ message: 'Failed to load stats' })
-  }
-})
+// GET /api/admin/stats/student/:id
+router.get('/stats/student/:id',    protect, adminOnly, getStudentStats)
+
+// GET /api/admin/stats/tutor/:id
+router.get('/stats/tutor/:id',      protect, adminOnly, getTutorStats)
 
 // GET /api/admin/users
 router.get('/users', protect, adminOnly, async (req, res) => {
