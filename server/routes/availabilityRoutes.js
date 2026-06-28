@@ -14,6 +14,7 @@ const {
   deleteSlot,
   copyDay,
   getAllBookings,
+  cleanupStaleSlots,
 } = require('../controllers/availabilityController')
 
 // ── Public / Read ─────────────────────────────────────────────────────────────
@@ -24,6 +25,7 @@ router.get('/my-bookings',  protect,              getMyBookings)
 router.get('/all-bookings', protect, ownerOnly,   getAllBookings)
 
 // ── Write — blocked if trial expired or cancelled ─────────────────────────────
+router.delete('/cleanup', protect, tutorOnly, cleanupStaleSlots)
 router.post('/',          protect, tutorOnly,   requireSubscription, addSlot)
 router.post('/copy-day',  protect, tutorOnly,   requireSubscription, copyDay)
 router.post('/book',      protect, studentOnly, requireSubscription, bookSlot)

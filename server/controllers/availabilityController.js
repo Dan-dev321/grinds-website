@@ -95,9 +95,9 @@ const getAllSlots = async (req, res) => {
 // ─── GET MY BOOKINGS (Student/Parent) ────────────────────────────────────────
 const getMyBookings = async (req, res) => {
   try {
-    const slots = await Availability.find({ 
-      bookedBy: req.user.id, 
-      slotType: 'booked' 
+    const slots = await Availability.find({
+      bookedBy: req.user.id,
+      slotType: 'booked'
     })
       .populate('tutor', 'name email')
       .sort({ date: 1, startTime: 1 })
@@ -120,10 +120,39 @@ const getAllBookings = async (req, res) => {
   }
 }
 
+// ─── CLEANUP STALE SLOTS (Tutor) ─────────────────────────────────────────────
+// Removes any slot belonging to this tutor where date+endTime is >48hrs in the past
+const cleanupStaleSlots = async (req, res) => {
+  try {
+    const now = new Date()
+    const msIn48Hrs = 48 * 60 * 60 * 1000
+
+    const slots = await Availability.find({ tutor: req.user.id })
+
+    const staleIds = slots
+      .filter(slot => {
+        const [y, mo, d]  = slot.date.split('-').map(Number)
+        const [h, m]      = slot.endTime.split(':').map(Number)
+        const slotEndDate = new Date(y, mo - 1, d, h, m, 0)
+        return (now - slotEndDate) > msIn48Hrs
+      })
+      .map(slot => slot._id)
+
+    if (staleIds.length === 0)
+      return res.json({ deleted: 0 })
+
+    await Availability.deleteMany({ _id: { $in: staleIds } })
+    res.json({ deleted: staleIds.length })
+  } catch (err) {
+    console.error('Cleanup error:', err)
+    res.status(500).json({ message: 'Cleanup failed', error: err.message })
+  }
+}
+
 // ─── BOOK A SLOT (Student/Parent) ────────────────────────────────────────────
 const bookSlot = async (req, res) => {
   try {
-    const { startTime, date, tutorId } = req.body        // ✅ added tutorId
+    const { startTime, date, tutorId } = req.body
     if (!startTime || !date || !tutorId)
       return res.status(400).json({ message: 'startTime, date and tutorId are required' })
 
@@ -149,7 +178,7 @@ const bookSlot = async (req, res) => {
 
     const parentSlot = await Availability.findOne({
       date,
-      tutor: tutorId,                                    // ✅ scope to chosen tutor
+      tutor: tutorId,
       slotType: 'available',
       startTime: { $lte: startTime },
       endTime:   { $gte: bookEndTime }
@@ -358,17 +387,17 @@ const copyDay = async (req, res) => {
     if (fromDate === toDate)
       return res.status(400).json({ message: 'From and To dates cannot be the same' })
 
-    const sourceSlots = await Availability.find({ 
-      tutor: req.user.id, 
+    const sourceSlots = await Availability.find({
+      tutor: req.user.id,
       date: fromDate,
       slotType: 'available'
     })
     if (sourceSlots.length === 0)
       return res.status(404).json({ message: 'No available slots found on the source date' })
 
-    await Availability.deleteMany({ 
-      tutor: req.user.id, 
-      date: toDate, 
+    await Availability.deleteMany({
+      tutor: req.user.id,
+      date: toDate,
       slotType: { $in: ['available', 'unavailable'] }
     })
 
@@ -403,9 +432,10 @@ module.exports = {
   getSlotsByWeek,
   getAllSlots,
   getMyBookings,
-  getAllBookings,   // ✅ added
+  getAllBookings,
   bookSlot,
   unbookSlot,
   deleteSlot,
-  copyDay
+  copyDay,
+  cleanupStaleSlots,
 }
