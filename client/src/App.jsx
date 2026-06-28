@@ -9,18 +9,20 @@ import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
 
 // Pages
-import Home from './pages/Home'
-import Services from './pages/Services'
-import Availability from './pages/Availability'
-import Feedback from './pages/Feedback'
-import Login from './pages/Login'
-import Register from './pages/Register'
-import Notebook from './pages/Notebook'
+import Home               from './pages/Home'
+import Services           from './pages/Services'
+import Availability       from './pages/Availability'
+import Feedback           from './pages/Feedback'
+import Login              from './pages/Login'
+import Register           from './pages/Register'
+import Notebook           from './pages/Notebook'
+import Pricing            from './pages/Pricing'
+import SubscriptionSuccess from './pages/SubscriptionSuccess'
 
 // Dashboards
 import StudentDashboard from './pages/dashboards/StudentDashboard'
-import TutorDashboard from './pages/dashboards/TutorDashboard'
-import AdminDashboard from './pages/dashboards/AdminDashboard'
+import TutorDashboard   from './pages/dashboards/TutorDashboard'
+import AdminDashboard   from './pages/dashboards/AdminDashboard'
 
 function App() {
   return (
@@ -32,28 +34,39 @@ function App() {
             <Routes>
 
               {/* ======= PUBLIC ROUTES ======= */}
-              <Route path="/" element={<Home />} />
-              <Route path="/services" element={<Services />} />
+              <Route path="/"        element={<Home />} />
+              <Route path="/services"    element={<Services />} />
               <Route path="/availability" element={<Availability />} />
-              <Route path="/feedback" element={<Feedback />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+              <Route path="/feedback"    element={<Feedback />} />
+              <Route path="/login"       element={<Login />} />
+              <Route path="/register"    element={<Register />} />
+              <Route path="/pricing"     element={<Pricing />} />
 
-              {/* ======= NOTEBOOK (Tutor/Admin only) ======= */}
+              {/* ======= POST-CHECKOUT ======= */}
+              <Route
+                path="/subscription/success"
+                element={
+                  <ProtectedRoute allowedRoles={['tutor']}>
+                    <SubscriptionSuccess />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ======= NOTEBOOK ======= */}
               <Route
                 path="/notebook"
                 element={
-                  <ProtectedRoute allowedRoles={['tutor', 'admin']}>
+                  <ProtectedRoute allowedRoles={['tutor', 'owner']}>
                     <Notebook />
                   </ProtectedRoute>
                 }
               />
 
-              {/* ======= STUDENT / PARENT DASHBOARD ======= */}
+              {/* ======= STUDENT DASHBOARD ======= */}
               <Route
                 path="/dashboard/student"
                 element={
-                  <ProtectedRoute allowedRoles={['student', 'parent']}>
+                  <ProtectedRoute allowedRoles={['student']}>
                     <StudentDashboard />
                   </ProtectedRoute>
                 }
@@ -69,17 +82,17 @@ function App() {
                 }
               />
 
-              {/* ======= ADMIN DASHBOARD ======= */}
+              {/* ======= OWNER DASHBOARD ======= */}
               <Route
                 path="/dashboard/admin"
                 element={
-                  <ProtectedRoute allowedRoles={['admin']}>
+                  <ProtectedRoute allowedRoles={['owner']}>
                     <AdminDashboard />
                   </ProtectedRoute>
                 }
               />
 
-              {/* ======= 404 CATCH ALL ======= */}
+              {/* ======= 404 ======= */}
               <Route
                 path="*"
                 element={
@@ -89,7 +102,7 @@ function App() {
                     <p className="text-gray-500 mb-6">The page you're looking for doesn't exist.</p>
                     <a
                       href="/"
-                      className="bg-blue-700 text-white px-6 py-2 rounded-full font-bold hover:bg-blue-800 transition"
+                      className="bg-brand-600 text-white px-6 py-2 rounded-full font-bold hover:bg-brand-700 transition"
                     >
                       Back to Home
                     </a>

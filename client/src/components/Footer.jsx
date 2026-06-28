@@ -1,8 +1,12 @@
 const Footer = () => {
   return (
-    <footer className="bg-blue-700 text-white text-center py-4 text-sm mt-auto">
-      <p>© {new Date().getFullYear()} TutorBase · Online Management for Tutors</p>
-      <p className="text-blue-300 text-xs mt-1">Ireland 🇮🇪</p>
+    <footer className="bg-brand-600 text-white text-center py-5 text-sm mt-auto">
+      <p className="font-medium">
+        © {new Date().getFullYear()} TutorBase · Online Management for Tutors
+      </p>
+      <p className="text-brand-300 text-xs mt-1">
+        Ireland 🇮🇪
+      </p>
     </footer>
   )
 }
