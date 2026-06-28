@@ -15,6 +15,7 @@ import Availability from './pages/Availability'
 import Feedback from './pages/Feedback'
 import Login from './pages/Login'
 import Register from './pages/Register'
+import Notebook from './pages/Notebook'
 
 // Dashboards
 import StudentDashboard from './pages/dashboards/StudentDashboard'
@@ -37,6 +38,16 @@ function App() {
               <Route path="/feedback" element={<Feedback />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
+
+              {/* ======= NOTEBOOK (Tutor/Admin only) ======= */}
+              <Route
+                path="/notebook"
+                element={
+                  <ProtectedRoute allowedRoles={['tutor', 'admin']}>
+                    <Notebook />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* ======= STUDENT / PARENT DASHBOARD ======= */}
               <Route
@@ -78,7 +89,7 @@ function App() {
                     <p className="text-gray-500 mb-6">The page you're looking for doesn't exist.</p>
                     <a
                       href="/"
-                      className="bg-blue-700 text-white px-6 py-3 rounded-full font-bold hover:bg-blue-800 transition"
+                      className="bg-blue-700 text-white px-6 py-2 rounded-full font-bold hover:bg-blue-800 transition"
                     >
                       Back to Home
                     </a>

@@ -45,11 +45,13 @@ const authRoutes = require('./routes/authRoutes')
 const availabilityRoutes = require('./routes/availabilityRoutes')
 const feedbackRoutes = require('./routes/feedbackRoutes')
 const adminRoutes = require('./routes/adminRoutes')
+const noteRoutes = require('./routes/noteRoutes')
 
 app.use('/api/auth', authRoutes)
 app.use('/api/availability', availabilityRoutes)
 app.use('/api/feedback', feedbackRoutes)
 app.use('/api/admin', adminRoutes)
+app.use('/api/notes', noteRoutes)
 
 // ========================
 // HEALTH CHECK

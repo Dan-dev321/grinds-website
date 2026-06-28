@@ -2,14 +2,19 @@ const mongoose = require('mongoose')
 
 const availabilitySchema = new mongoose.Schema({
   tutor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  date: { type: String, required: true },           // "YYYY-MM-DD"
+  date: { type: String, required: true },
   dayOfWeek: { type: String, enum: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'], required: true },
-  startTime: { type: String, required: true },      // "HH:MM"
+  startTime: { type: String, required: true },
   endTime:   { type: String, required: true },
   slotType: {
     type: String,
     enum: ['available', 'booked', 'buffer', 'unavailable'],
     default: 'available'
+  },
+  status: {
+    type: String,
+    enum: ['upcoming', 'completed', 'no-show'],
+    default: 'upcoming'
   },
   parentSlotId: {
     type: mongoose.Schema.Types.ObjectId,

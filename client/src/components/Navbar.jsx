@@ -10,7 +10,6 @@ const Navbar = () => {
     navigate('/')
   }
 
-  // Redirect to correct dashboard based on role
   const getDashboardLink = () => {
     if (!user) return null
     const roleMap = {
@@ -21,6 +20,8 @@ const Navbar = () => {
     }
     return roleMap[user.role] || '/dashboard/student'
   }
+
+  const isTutorOrAdmin = user?.role === 'tutor' || user?.role === 'admin'
 
   return (
     <nav className="bg-blue-700 text-white shadow-md">
@@ -37,12 +38,16 @@ const Navbar = () => {
           <Link to="/availability" className="hover:text-blue-200 transition">Availability</Link>
           <Link to="/feedback" className="hover:text-blue-200 transition">Reviews</Link>
 
+          {/* Notebook link — tutor/admin only */}
+          {isTutorOrAdmin && (
+            <Link to="/notebook" className="hover:text-blue-200 transition">
+              📓 Notebook
+            </Link>
+          )}
+
           {user ? (
             <>
-              <Link
-                to={getDashboardLink()}
-                className="hover:text-blue-200 transition"
-              >
+              <Link to={getDashboardLink()} className="hover:text-blue-200 transition">
                 Dashboard
               </Link>
               <span className="text-blue-300 text-xs">Hi, {user.name.split(' ')[0]}!</span>

@@ -557,7 +557,8 @@ const Availability = () => {
                       : []
                     // Non-available covering this row (booked/buffer) — just first one
                     const nonAvailHere = isStudentOrParent
-                      ? slotsHere.filter(s => s.slotType !== 'available')
+                      ? slotsHere.filter(s => s.slotType !== 'available' && 
+                          (s.slotType !== 'booked' || s.bookedBy?._id?.toString() === user?.id?.toString()))
                       : []
                     // Only render non-avail label on the row where it starts
                     const nonAvailStarting = nonAvailHere.filter(s => s.startTime === time)

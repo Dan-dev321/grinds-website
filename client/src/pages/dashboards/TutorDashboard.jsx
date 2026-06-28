@@ -88,6 +88,20 @@ const TutorDashboard = () => {
     }
   }
 
+  const handleMarkComplete = async (slotId) => {
+    try {
+      await axios.put(
+        `${API}/api/notes/complete/${slotId}`,
+        {},
+        authHeader
+      )
+      flashSuccess('Session marked as complete ✅ — added to Notebook!')
+      fetchData()
+    } catch (err) {
+      flashError(err.response?.data?.message || 'Failed to mark as complete')
+    }
+  }
+
   // ── Derived stats ────────────────────────────────────────────
   const todayStr = toDateStr(new Date())
   const { monday, sunday } = getWeekBounds()
@@ -269,31 +283,55 @@ const TutorDashboard = () => {
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-xl font-bold text-gray-800">🕘 Past Sessions</h2>
               <span className="bg-gray-100 text-gray-500 text-xs font-bold px-3 py-1 rounded-full">
-                {pastSessions.length} completed
+                {pastSessions.length} session{pastSessions.length !== 1 ? 's' : ''}
               </span>
             </div>
             <div className="flex flex-col gap-3">
-              {pastSessions.map(slot => (
-                <div
-                  key={slot._id}
-                  className="flex items-center gap-4 bg-gray-50 border border-gray-200 rounded-xl px-5 py-4 opacity-75"
-                >
-                  <div className="text-2xl">✅</div>
-                  <div>
-                    <p className="font-semibold text-gray-700 text-sm">
-                      {formatDisplay(slot.date)}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {slot.startTime} – {slot.endTime}
-                    </p>
-                    {slot.bookedBy && (
-                      <p className="text-xs text-gray-400">
-                        Student: {slot.bookedBy.name}
-                      </p>
+              {pastSessions.map(slot => {
+                const isCompleted = slot.status === 'completed'
+                return (
+                  <div
+                    key={slot._id}
+                    className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 rounded-xl px-5 py-4 border ${
+                      isCompleted
+                        ? 'bg-green-50 border-green-200'
+                        : 'bg-gray-50 border-gray-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="text-2xl">{isCompleted ? '✅' : '🕘'}</div>
+                      <div>
+                        <p className="font-semibold text-gray-700 text-sm">
+                          {formatDisplay(slot.date)}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {slot.startTime} – {slot.endTime}
+                        </p>
+                        {slot.bookedBy && (
+                          <p className="text-xs text-gray-400">
+                            Student: {slot.bookedBy.name}
+                          </p>
+                        )}
+                        {isCompleted && (
+                          <p className="text-xs text-green-600 font-semibold mt-0.5">
+                            ✓ Marked as complete — added to Notebook
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Only show button if not already completed */}
+                    {!isCompleted && (
+                      <button
+                        onClick={() => handleMarkComplete(slot._id)}
+                        className="bg-green-100 text-green-700 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-green-200 transition self-start sm:self-auto"
+                      >
+                        ✅ Mark as Complete
+                      </button>
                     )}
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         )}
