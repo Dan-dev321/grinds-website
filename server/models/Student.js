@@ -20,13 +20,13 @@ const studentSchema = new mongoose.Schema({
   parentEmail: { type: String, default: '' },
   parentPhone: { type: String, default: '' },
 
-  isActive:    { type: Boolean, default: true },
+  isActive: { type: Boolean, default: true },
 }, { timestamps: true })
 
-studentSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next()
+// ✅ Mongoose 7+ async pre-save — do NOT use next()
+studentSchema.pre('save', async function () {
+  if (!this.isModified('password')) return
   this.password = await bcrypt.hash(this.password, 10)
-  next()
 })
 
 studentSchema.methods.matchPassword = async function (entered) {

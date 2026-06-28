@@ -2,11 +2,11 @@ const mongoose = require('mongoose')
 const bcrypt = require('bcryptjs')
 
 const tutorSchema = new mongoose.Schema({
-  name:               { type: String, required: true },
-  email:              { type: String, required: true, unique: true },
-  password:           { type: String, required: true },
-  businessName:       { type: String, default: '' },
-  inviteCode:         { type: String, unique: true },
+  name:         { type: String, required: true },
+  email:        { type: String, required: true, unique: true },
+  password:     { type: String, required: true },
+  businessName: { type: String, default: '' },
+  inviteCode:   { type: String, unique: true },
 
   // Subscription
   subscription: {
@@ -14,22 +14,21 @@ const tutorSchema = new mongoose.Schema({
     trialEnds:            { type: Date },
     stripeCustomerId:     { type: String },
     stripeSubscriptionId: { type: String },
-    plan:                 { type: String, enum: ['monthly', 'quarterly', 'yearly'], default: null },
+    plan:                 { type: String, enum: ['monthly', 'quarterly', 'yearly', null], default: null },
   },
 
-  isActive: { type: Boolean, default: true }, // Owner can disable accounts
+  isActive: { type: Boolean, default: true },
 }, { timestamps: true })
 
-// Hash password before save
-tutorSchema.pre('save', async function (next) {
-  if (!this.isModified('password')) return next()
+// ✅ Mongoose 7+ async pre-save — do NOT use next(), just return
+tutorSchema.pre('save', async function () {
+  if (!this.isModified('password')) return
   this.password = await bcrypt.hash(this.password, 10)
-  next()
 })
 
 // Generate unique invite code
 tutorSchema.methods.generateInviteCode = function () {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789' // no confusable chars
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
   let code = ''
   for (let i = 0; i < 6; i++) {
     code += chars.charAt(Math.floor(Math.random() * chars.length))
