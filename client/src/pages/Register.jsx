@@ -1,190 +1,133 @@
-import { Link, useNavigate, Navigate } from 'react-router-dom'
 import { useState } from 'react'
+import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import axios from 'axios'
-import { useAuth } from '../context/AuthContext'
 
 const API = import.meta.env.VITE_API_URL
 
 const Register = () => {
-  const { user, login } = useAuth()   // ✅ MOVED INSIDE the component
-  const navigate = useNavigate()
+  const [searchParams]  = useSearchParams()
+  const navigate        = useNavigate()
 
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    confirmPassword: '',
-    role: 'student'
+  // If a ?code= param exists in the URL, default to student registration
+  const codeFromUrl     = searchParams.get('code') || ''
+  const [mode, setMode] = useState(codeFromUrl ? 'student' : 'tutor')
+
+  const [form, setForm] = useState({
+    name: '', email: '', password: '', businessName: '', inviteCode: codeFromUrl,
   })
-  const [error, setError] = useState('')
+  const [error,   setError]   = useState('')
   const [loading, setLoading] = useState(false)
 
-  // ✅ MOVED INSIDE the component — redirect if already logged in
-  if (user) {
-    const roleMap = {
-      student: '/dashboard/student',
-      parent: '/dashboard/student',
-      tutor: '/dashboard/tutor',
-      admin: '/dashboard/admin'
-    }
-    return <Navigate to={roleMap[user.role] || '/dashboard/student'} replace />
-  }
+  const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value })
-    setError('')
-  }
-
-  const handleSubmit = async (e) => {
+  const submit = async (e) => {
     e.preventDefault()
-
-    if (formData.password !== formData.confirmPassword) {
-      return setError('Passwords do not match')
-    }
-    if (formData.password.length < 6) {
-      return setError('Password must be at least 6 characters')
-    }
-
+    setError('')
     setLoading(true)
     try {
-      const res = await axios.post(`${API}/api/auth/register`, {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-        role: formData.role
-      })
-      login(res.data.user, res.data.token)
-
-      const roleMap = {
-        student: '/dashboard/student',
-        parent: '/dashboard/student',
-        tutor: '/dashboard/tutor',
-        admin: '/dashboard/admin'
-      }
-      navigate(roleMap[res.data.user.role] || '/dashboard/student')
-
+      const endpoint = mode === 'tutor'
+        ? `${API}/api/auth/register/tutor`
+        : `${API}/api/auth/register/student`
+      await axios.post(endpoint, form)
+      navigate('/login')
     } catch (err) {
-      setError(err.response?.data?.message || 'Something went wrong')
+      setError(err.response?.data?.message || 'Registration failed')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4 py-12">
-      <div className="bg-white rounded-2xl shadow-md w-full max-w-md p-8">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-sm p-8 w-full max-w-md">
 
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="text-4xl mb-2">📐</div>
-          <h1 className="text-2xl font-bold text-gray-800">Create an Account</h1>
-          <p className="text-gray-500 text-sm mt-1">Join Daniel's Maths Grinds today</p>
+          <h1 className="text-3xl font-extrabold text-gray-900">TutorBase</h1>
+          <p className="text-gray-500 mt-1 text-sm">
+            {mode === 'tutor'
+              ? 'Start your free 14-day trial'
+              : 'Join your tutor\'s workspace'}
+          </p>
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl px-4 py-3 mb-6 text-sm text-center">
-            ⚠️ {error}
+        {/* Mode toggle — only show if no code in URL */}
+        {!codeFromUrl && (
+          <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
+            <button
+              onClick={() => setMode('tutor')}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition ${
+                mode === 'tutor' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+              }`}
+            >
+              I'm a Tutor
+            </button>
+            <button
+              onClick={() => setMode('student')}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition ${
+                mode === 'student' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+              }`}
+            >
+              I'm a Student
+            </button>
           </div>
         )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl">
+            {error}
+          </div>
+        )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Full Name
-            </label>
+        <form onSubmit={submit} className="flex flex-col gap-4">
+          <input
+            name="name" placeholder="Full name" value={form.name}
+            onChange={handle} required
+            className="border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-sky-400"
+          />
+          <input
+            name="email" type="email" placeholder="Email" value={form.email}
+            onChange={handle} required
+            className="border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-sky-400"
+          />
+          <input
+            name="password" type="password" placeholder="Password" value={form.password}
+            onChange={handle} required
+            className="border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-sky-400"
+          />
+
+          {/* Tutor only */}
+          {mode === 'tutor' && (
             <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              placeholder="John Smith"
-              required
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              name="businessName" placeholder="Business name (optional)" value={form.businessName}
+              onChange={handle}
+              className="border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-sky-400"
             />
-          </div>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Email Address
-            </label>
+          {/* Student only */}
+          {mode === 'student' && (
             <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="you@example.com"
+              name="inviteCode"
+              placeholder="Tutor invite code (e.g. AB4X92)"
+              value={form.inviteCode}
+              onChange={handle}
               required
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
+              className="border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono uppercase tracking-widest focus:outline-none focus:border-sky-400"
             />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              I am a...
-            </label>
-            <select
-              name="role"
-              value={formData.role}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-white"
-            >
-              <option value="student">Student</option>
-              <option value="parent">Parent</option>
-            </select>
-            <p className="text-xs text-gray-400 mt-1">
-              * Tutor and Admin accounts are created by the administrator
-            </p>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Password
-            </label>
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Min. 6 characters"
-              required
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              name="confirmPassword"
-              value={formData.confirmPassword}
-              onChange={handleChange}
-              placeholder="••••••••"
-              required
-              className="w-full border border-gray-300 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition"
-            />
-          </div>
+          )}
 
           <button
-            type="submit"
-            disabled={loading}
-            className="bg-blue-700 text-white font-bold py-3 rounded-xl hover:bg-blue-800 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            type="submit" disabled={loading}
+            className="bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 rounded-xl transition text-sm mt-2"
           >
-            {loading ? 'Creating Account...' : 'Create Account →'}
+            {loading ? 'Creating account...' : mode === 'tutor' ? 'Start Free Trial' : 'Join Workspace'}
           </button>
-
         </form>
 
-        {/* Footer */}
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-gray-400 text-sm mt-6">
           Already have an account?{' '}
-          <Link to="/login" className="text-blue-700 font-semibold hover:underline">
-            Login here
-          </Link>
+          <Link to="/login" className="text-sky-600 font-semibold hover:underline">Log in</Link>
         </p>
 
       </div>

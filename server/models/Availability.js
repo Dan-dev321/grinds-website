@@ -1,7 +1,7 @@
 const mongoose = require('mongoose')
 
 const availabilitySchema = new mongoose.Schema({
-  tutor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  tutor: { type: mongoose.Schema.Types.ObjectId, ref: 'Tutor', required: true },
   date: { type: String, required: true },
   dayOfWeek: { type: String, enum: ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'], required: true },
   startTime: { type: String, required: true },
@@ -22,7 +22,7 @@ const availabilitySchema = new mongoose.Schema({
     default: null
   },
   isBooked: { type: Boolean, default: false },
-  bookedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }
+  bookedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', default: null }
 }, { timestamps: true })
 
 module.exports = mongoose.model('Availability', availabilitySchema)

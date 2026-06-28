@@ -1,79 +1,122 @@
-const User = require('../models/User')
-const bcrypt = require('bcryptjs')
-const jwt = require('jsonwebtoken')
+const Tutor   = require('../models/Tutor')
+const Student = require('../models/Student')
+const jwt     = require('jsonwebtoken')
 
-const generateToken = (user) => {
-  return jwt.sign(
-    { id: user._id, role: user.role },
-    process.env.JWT_SECRET,
-    { expiresIn: '7d' }
-  )
-}
+const generateToken = (id, role) =>
+  jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: '7d' })
 
-// @route POST /api/auth/register
-const register = async (req, res) => {
-  const { name, email, password, role } = req.body
-
+// ── Register Tutor ────────────────────────────────────────────
+const registerTutor = async (req, res) => {
   try {
-    const existingUser = await User.findOne({ email })
-    if (existingUser) {
-      return res.status(400).json({ message: 'Email already in use' })
-    }
+    const { name, email, password, businessName } = req.body
 
-    const hashedPassword = await bcrypt.hash(password, 10)
+    const exists = await Tutor.findOne({ email })
+    if (exists) return res.status(400).json({ message: 'Email already in use' })
 
-    const user = await User.create({
+    const tutor = new Tutor({
       name,
       email,
-      password: hashedPassword,
-      role: role || 'student'
+      password,
+      businessName: businessName || '',
+      subscription: {
+        status:    'trial',
+        trialEnds: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
+      },
     })
 
-    const token = generateToken(user)
+    // Generate a unique invite code
+    let code, taken
+    do {
+      code  = tutor.generateInviteCode()
+      taken = await Tutor.findOne({ inviteCode: code })
+    } while (taken)
+
+    await tutor.save()
 
     res.status(201).json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
+      _id:        tutor._id,
+      name:       tutor.name,
+      email:      tutor.email,
+      role:       'tutor',
+      inviteCode: tutor.inviteCode,
+      token:      generateToken(tutor._id, 'tutor'),
     })
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message })
+    console.error('registerTutor:', err)
+    res.status(500).json({ message: 'Registration failed' })
   }
 }
 
-// @route POST /api/auth/login
-const login = async (req, res) => {
-  const { email, password } = req.body
-
+// ── Register Student (requires invite code) ───────────────────
+const registerStudent = async (req, res) => {
   try {
-    const user = await User.findOne({ email })
-    if (!user) {
-      return res.status(400).json({ message: 'Invalid email or password' })
+    const { name, email, password, inviteCode } = req.body
+
+    // Find the tutor this code belongs to
+    const tutor = await Tutor.findOne({ inviteCode: inviteCode?.toUpperCase() })
+    if (!tutor) return res.status(400).json({ message: 'Invalid invite code' })
+
+    const exists = await Student.findOne({ email })
+    if (exists) return res.status(400).json({ message: 'Email already in use' })
+
+    const student = await Student.create({
+      tutorId: tutor._id,
+      name,
+      email,
+      password,
+    })
+
+    res.status(201).json({
+      _id:     student._id,
+      name:    student.name,
+      email:   student.email,
+      role:    'student',
+      tutorId: student.tutorId,
+      token:   generateToken(student._id, 'student'),
+    })
+  } catch (err) {
+    console.error('registerStudent:', err)
+    res.status(500).json({ message: 'Registration failed' })
+  }
+}
+
+// ── Login (works for tutor, student, owner) ───────────────────
+const login = async (req, res) => {
+  try {
+    const { email, password } = req.body
+
+    // Check each collection in order
+    let account = await Tutor.findOne({ email })
+    let role = 'tutor'
+
+    if (!account) {
+      account = await Student.findOne({ email })
+      role = 'student'
     }
 
-    const isMatch = await bcrypt.compare(password, user.password)
-    if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid email or password' })
+    if (!account) {
+      const Owner = require('../models/Owner')
+      account = await Owner.findOne({ email })
+      role = 'owner'
     }
 
-    const token = generateToken(user)
+    if (!account) return res.status(401).json({ message: 'Invalid credentials' })
+
+    const match = await account.matchPassword(password)
+    if (!match)  return res.status(401).json({ message: 'Invalid credentials' })
 
     res.json({
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role
-      }
+      _id:     account._id,
+      name:    account.name,
+      email:   account.email,
+      role,
+      tutorId: account.tutorId || null,
+      token:   generateToken(account._id, role),
     })
   } catch (err) {
-    res.status(500).json({ message: 'Server error', error: err.message })
+    console.error('login:', err)
+    res.status(500).json({ message: 'Login failed' })
   }
 }
 
-module.exports = { register, login }
+module.exports = { registerTutor, registerStudent, login }

@@ -1,247 +1,292 @@
-import { useState, useEffect } from 'react'
-import { useAuth } from '../../context/AuthContext'
-import { Link } from 'react-router-dom'
-import axios from 'axios'
+// client/src/pages/dashboards/StudentDashboard.jsx
+import { useEffect, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import {
+  CalendarDaysIcon,
+  ClockIcon,
+  BookOpenIcon,
+  CheckCircleIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  UserCircleIcon,
+  AcademicCapIcon,
+} from '@heroicons/react/24/outline';
 
-//const API = import.meta.env.VITE_API_URL || 'http://localhost:5000'
-const API = import.meta.env.VITE_API_URL
+// ── helpers ──────────────────────────────────────────────
+const API = import.meta.env.VITE_API_URL ?? 'http://localhost:5000';
 
-const formatDisplay = (dateStr) => {
-  const [y, m, d] = dateStr.split('-').map(Number)
-  return new Date(y, m - 1, d).toLocaleDateString('en-IE', {
-    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric'
-  })
+const authHeaders = (token) => ({
+  'Content-Type': 'application/json',
+  Authorization: `Bearer ${token}`,
+});
+
+const now = new Date();
+
+const isUpcoming = (session) => new Date(session.date) >= now;
+const isPast     = (session) => new Date(session.date) <  now;
+
+const statusBadge = (status) => {
+  const map = {
+    confirmed: 'badge-success',
+    pending:   'badge-warning',
+    cancelled: 'badge-danger',
+    completed: 'badge-brand',
+  };
+  return map[status] ?? 'badge-brand';
+};
+
+const formatDate = (dateStr) =>
+  new Date(dateStr).toLocaleDateString('en-IE', {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+  });
+
+const formatTime = (dateStr) =>
+  new Date(dateStr).toLocaleTimeString('en-IE', {
+    hour: '2-digit', minute: '2-digit',
+  });
+
+// ── sub-components ────────────────────────────────────────
+function StatCard({ icon: Icon, label, value, sub, color = 'text-brand-600' }) {
+  return (
+    <div className="card flex items-start gap-4">
+      <div className={`mt-0.5 rounded-lg bg-surface-100 p-2 ${color}`}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div>
+        <p className="text-sm text-gray-500">{label}</p>
+        <p className="text-2xl font-bold text-gray-900">{value}</p>
+        {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+      </div>
+    </div>
+  );
 }
 
-const StudentDashboard = () => {
-  const { user, token } = useAuth()
-  const authHeader = { headers: { Authorization: `Bearer ${token}` } }
+function SessionRow({ session }) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-surface-200 bg-white px-4 py-3 hover:bg-surface-50 transition-colors">
+      <div className="flex items-center gap-3">
+        <div className="flex flex-col items-center justify-center w-12 h-12 rounded-lg bg-brand-50 text-brand-700 text-xs font-semibold leading-tight">
+          <span>{new Date(session.date).toLocaleDateString('en-IE', { day: 'numeric' })}</span>
+          <span>{new Date(session.date).toLocaleDateString('en-IE', { month: 'short' })}</span>
+        </div>
+        <div>
+          <p className="font-medium text-gray-900">
+            {session.subject ?? 'Session'}
+          </p>
+          <p className="text-sm text-gray-500">
+            {formatTime(session.date)} · {session.duration ?? 60} min
+          </p>
+        </div>
+      </div>
+      <span className={`badge ${statusBadge(session.status)}`}>
+        {session.status ?? 'booked'}
+      </span>
+    </div>
+  );
+}
 
-  const [bookings, setBookings]   = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [success, setSuccess]     = useState('')
-  const [error, setError]         = useState('')
+// ── main component ────────────────────────────────────────
+export default function StudentDashboard() {
+  const { token } = useAuth();
 
-  const flashSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3500) }
-  const flashError   = (msg) => { setError(msg);   setTimeout(() => setError(''),   3500) }
+  const [profile,         setProfile]         = useState(null);
+  const [sessions,        setSessions]        = useState([]);
+  const [loading,         setLoading]         = useState(true);
+  const [error,           setError]           = useState(null);
+  const [showPast,        setShowPast]        = useState(false);
 
-  const fetchBookings = async () => {
-    try {
-      setLoading(true)
-      const res = await axios.get(`${API}/api/availability/my-bookings`, authHeader)
-      setBookings(res.data)
-    } catch (err) {
-      flashError('Failed to load bookings')
-    } finally {
-      setLoading(false)
-    }
+  // ── fetch on mount ──────────────────────────────────────
+  useEffect(() => {
+    const headers = authHeaders(token);
+
+    Promise.all([
+      fetch(`${API}/api/students/me`,     { headers }).then((r) => r.json()),
+      fetch(`${API}/api/sessions/mine`,   { headers }).then((r) => r.json()),
+    ])
+      .then(([profileData, sessionData]) => {
+        setProfile(profileData);
+        setSessions(Array.isArray(sessionData) ? sessionData : []);
+      })
+      .catch(() => setError('Failed to load dashboard data.'))
+      .finally(() => setLoading(false));
+  }, [token]);
+
+  // ── derived state ───────────────────────────────────────
+  const upcoming = sessions.filter(isUpcoming);
+  const past     = sessions.filter(isPast).reverse(); // most-recent-past first
+  const nextSession = upcoming[0] ?? null;
+
+  const stats = {
+    upcoming:  upcoming.length,
+    total:     sessions.length,
+    completed: past.filter((s) => s.status === 'completed').length,
+    subjects:  [...new Set(sessions.map((s) => s.subject).filter(Boolean))].length,
+  };
+
+  // ── render ──────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="page-wrapper flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3 text-gray-400">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand-200 border-t-brand-600" />
+          <p className="text-sm">Loading your dashboard…</p>
+        </div>
+      </div>
+    );
   }
 
-  useEffect(() => { fetchBookings() }, [])
-
-  const handleCancel = async (slotId) => {
-    if (!window.confirm('Cancel this session?')) return
-    try {
-      await axios.put(`${API}/api/availability/${slotId}/unbook`, {}, authHeader)
-      flashSuccess('Session cancelled ✅')
-      fetchBookings()
-    } catch (err) {
-      flashError(err.response?.data?.message || 'Failed to cancel')
-    }
+  if (error) {
+    return (
+      <div className="page-wrapper flex items-center justify-center min-h-[60vh]">
+        <div className="text-center text-red-500 space-y-2">
+          <p className="font-semibold">{error}</p>
+          <button className="btn-secondary text-sm" onClick={() => window.location.reload()}>
+            Try again
+          </button>
+        </div>
+      </div>
+    );
   }
-
-  // ── Split into upcoming vs past ──────────────────────────────
-  const todayStr = new Date().toISOString().split('T')[0]
-  const upcoming = bookings.filter(b => b.date >= todayStr)
-  const past     = bookings.filter(b => b.date <  todayStr)
 
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-4">
-      <div className="max-w-5xl mx-auto">
+    <div className="page-wrapper">
+      <div className="page-container space-y-8">
 
-        {/* ======= WELCOME HEADER ======= */}
-        <div className="bg-blue-700 text-white rounded-2xl p-8 mb-8 shadow-md">
-          <h1 className="text-3xl font-extrabold mb-1">
-            👋 Welcome back, {user?.name?.split(' ')[0]}!
-          </h1>
-          <p className="text-blue-100">
-            Here's your student dashboard — manage your sessions and track your progress.
-          </p>
-          <span className="inline-block mt-3 bg-blue-600 text-blue-100 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wide">
-            {user?.role}
-          </span>
-        </div>
-
-        {/* ======= FLASH MESSAGES ======= */}
-        {success && (
-          <div className="mb-6 bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded-xl text-center font-medium text-sm">
-            {success}
-          </div>
-        )}
-        {error && (
-          <div className="mb-6 bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-xl text-center font-medium text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* ======= QUICK ACTIONS ======= */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
-          <Link
-            to="/availability"
-            className="bg-white rounded-2xl shadow-sm p-6 text-center hover:shadow-md transition border-t-4 border-blue-400"
-          >
-            <div className="text-4xl mb-3">📅</div>
-            <h3 className="font-bold text-gray-800">Book a Session</h3>
-            <p className="text-gray-500 text-sm mt-1">View available slots and book your next grind</p>
-          </Link>
-
-          <Link
-            to="/services"
-            className="bg-white rounded-2xl shadow-sm p-6 text-center hover:shadow-md transition border-t-4 border-blue-500"
-          >
-            <div className="text-4xl mb-3">💰</div>
-            <h3 className="font-bold text-gray-800">View Pricing</h3>
-            <p className="text-gray-500 text-sm mt-1">Check session rates for JC and LC</p>
-          </Link>
-
-          <Link
-            to="/feedback"
-            className="bg-white rounded-2xl shadow-sm p-6 text-center hover:shadow-md transition border-t-4 border-blue-700"
-          >
-            <div className="text-4xl mb-3">⭐</div>
-            <h3 className="font-bold text-gray-800">Leave a Review</h3>
-            <p className="text-gray-500 text-sm mt-1">Share your experience with other students</p>
-          </Link>
-        </div>
-
-        {/* ======= MY UPCOMING SESSIONS ======= */}
-        <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
-          <div className="flex items-center justify-between mb-5">
-            <h2 className="text-xl font-bold text-gray-800">📚 My Upcoming Sessions</h2>
-            {upcoming.length > 0 && (
-              <span className="bg-blue-100 text-blue-700 text-xs font-bold px-3 py-1 rounded-full">
-                {upcoming.length} booked
+        {/* ── Header ──────────────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Welcome back, {profile?.name?.split(' ')[0]} 👋
+            </h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Workspace: <span className="font-medium text-brand-700">
+                {profile?.tutor?.businessName ?? profile?.tutor?.name ?? '—'}
               </span>
-            )}
+            </p>
           </div>
 
-          {loading ? (
-            <div className="text-center py-10 text-gray-400">
-              <div className="text-4xl mb-2">⏳</div>
-              <p>Loading your sessions...</p>
-            </div>
-          ) : upcoming.length === 0 ? (
-            <div className="text-center py-10 text-gray-400">
-              <div className="text-5xl mb-3">📭</div>
-              <p className="font-medium">No upcoming sessions booked yet.</p>
-              <p className="text-sm mt-1">Head to the availability page to book your first session!</p>
-              <Link
-                to="/availability"
-                className="inline-block mt-4 bg-blue-700 text-white px-6 py-2 rounded-full text-sm font-semibold hover:bg-blue-800 transition"
-              >
-                Book Now →
-              </Link>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3">
-              {upcoming.map(slot => (
-                <div
-                  key={slot._id}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-blue-50 border border-blue-200 rounded-xl px-5 py-4"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="text-2xl">📅</div>
-                    <div>
-                      <p className="font-semibold text-gray-800 text-sm">
-                        {formatDisplay(slot.date)}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {slot.startTime} – {slot.endTime}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        Tutor: {slot.tutor?.name || 'Daniel'}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleCancel(slot._id)}
-                    className="bg-red-100 text-red-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-red-200 transition self-start sm:self-auto"
-                  >
-                    Cancel Session
-                  </button>
-                </div>
-              ))}
+          {/* Next session pill */}
+          {nextSession && (
+            <div className="flex items-center gap-2 rounded-full bg-brand-50 border border-brand-200 px-4 py-2 text-sm text-brand-700">
+              <CalendarDaysIcon className="h-4 w-4" />
+              <span>
+                Next: <strong>{formatDate(nextSession.date)}</strong> at {formatTime(nextSession.date)}
+              </span>
             </div>
           )}
         </div>
 
-        {/* ======= PAST SESSIONS ======= */}
-        {!loading && past.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm p-6 mb-8">
-            <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-bold text-gray-800">🕘 Past Sessions</h2>
-              <span className="bg-gray-100 text-gray-500 text-xs font-bold px-3 py-1 rounded-full">
-                {past.length} completed
-              </span>
+        {/* ── Stat cards ──────────────────────────────────── */}
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <StatCard
+            icon={CalendarDaysIcon}
+            label="Upcoming"
+            value={stats.upcoming}
+            sub="sessions booked"
+          />
+          <StatCard
+            icon={CheckCircleIcon}
+            label="Completed"
+            value={stats.completed}
+            color="text-green-600"
+            sub="sessions done"
+          />
+          <StatCard
+            icon={ClockIcon}
+            label="Total sessions"
+            value={stats.total}
+            color="text-violet-600"
+            sub="all time"
+          />
+          <StatCard
+            icon={AcademicCapIcon}
+            label="Subjects"
+            value={stats.subjects || '—'}
+            color="text-amber-600"
+            sub="being studied"
+          />
+        </div>
+
+        {/* ── Upcoming sessions ───────────────────────────── */}
+        <section>
+          <h2 className="text-lg font-semibold text-gray-900 mb-3">
+            Upcoming Sessions
+          </h2>
+
+          {upcoming.length === 0 ? (
+            <div className="card text-center py-10 text-gray-400">
+              <CalendarDaysIcon className="h-10 w-10 mx-auto mb-2 opacity-40" />
+              <p className="text-sm">No upcoming sessions booked yet.</p>
+              <p className="text-xs mt-1">Contact your tutor to schedule one.</p>
             </div>
-            <div className="flex flex-col gap-3">
-              {past.map(slot => (
-                <div
-                  key={slot._id}
-                  className="flex items-center gap-4 bg-gray-50 border border-gray-200 rounded-xl px-5 py-4 opacity-75"
-                >
-                  <div className="text-2xl">✅</div>
-                  <div>
-                    <p className="font-semibold text-gray-700 text-sm">
-                      {formatDisplay(slot.date)}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {slot.startTime} – {slot.endTime}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      Tutor: {slot.tutor?.name || 'Daniel'}
-                    </p>
-                  </div>
-                </div>
+          ) : (
+            <div className="space-y-2">
+              {upcoming.map((s) => (
+                <SessionRow key={s._id} session={s} />
               ))}
             </div>
-            <div className="mt-4 text-center">
-              <Link
-                to="/feedback"
-                className="text-blue-600 text-sm font-semibold hover:underline"
-              >
-                ⭐ Enjoyed your sessions? Leave a review →
-              </Link>
-            </div>
-          </div>
+          )}
+        </section>
+
+        {/* ── Past sessions (collapsed) ───────────────────── */}
+        {past.length > 0 && (
+          <section>
+            <button
+              onClick={() => setShowPast((v) => !v)}
+              className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors mb-3"
+            >
+              {showPast
+                ? <ChevronUpIcon className="h-4 w-4" />
+                : <ChevronDownIcon className="h-4 w-4" />}
+              {showPast ? 'Hide' : 'Show'} past sessions ({past.length})
+            </button>
+
+            {showPast && (
+              <div className="space-y-2 opacity-80">
+                {past.map((s) => (
+                  <SessionRow key={s._id} session={s} />
+                ))}
+              </div>
+            )}
+          </section>
         )}
 
-        {/* ======= ACCOUNT INFO ======= */}
-        <div className="bg-white rounded-2xl shadow-sm p-6">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">👤 My Account</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-gray-50 rounded-xl px-5 py-4">
-              <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Full Name</p>
-              <p className="text-gray-800 font-medium">{user?.name}</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl px-5 py-4">
-              <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Email</p>
-              <p className="text-gray-800 font-medium">{user?.email}</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl px-5 py-4">
-              <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Account Type</p>
-              <p className="text-gray-800 font-medium capitalize">{user?.role}</p>
-            </div>
-            <div className="bg-gray-50 rounded-xl px-5 py-4">
-              <p className="text-xs text-gray-400 uppercase font-semibold mb-1">Account ID</p>
-              <p className="text-gray-800 font-medium text-xs">{user?.id}</p>
-            </div>
+        {/* ── Profile summary card ────────────────────────── */}
+        <section className="card">
+          <div className="flex items-center gap-2 mb-4">
+            <UserCircleIcon className="h-5 w-5 text-brand-600" />
+            <h2 className="text-base font-semibold text-gray-900">My Profile</h2>
           </div>
-        </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 text-sm">
+            {[
+              { label: 'Full name',   value: profile?.name },
+              { label: 'Email',       value: profile?.email },
+              { label: 'Phone',       value: profile?.phone        || '—' },
+              { label: 'School',      value: profile?.school       || '—' },
+              { label: 'Year group',  value: profile?.yearGroup    || '—' },
+              { label: 'Exam board',  value: profile?.examBoard    || '—' },
+              { label: 'Subjects',    value: profile?.subjects?.join(', ') || '—' },
+              { label: 'Member since', value: profile?.createdAt
+                  ? new Date(profile.createdAt).toLocaleDateString('en-IE', { month: 'long', year: 'numeric' })
+                  : '—' },
+            ].map(({ label, value }) => (
+              <div key={label} className="flex flex-col gap-0.5">
+                <span className="text-xs text-gray-400 uppercase tracking-wide">{label}</span>
+                <span className="text-gray-800 font-medium">{value}</span>
+              </div>
+            ))}
+          </div>
+
+          {profile?.goals && (
+            <div className="mt-4 rounded-lg bg-surface-50 border border-surface-200 p-3">
+              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Goals</p>
+              <p className="text-sm text-gray-700">{profile.goals}</p>
+            </div>
+          )}
+        </section>
 
       </div>
     </div>
-  )
+  );
 }
-
-export default StudentDashboard

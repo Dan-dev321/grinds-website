@@ -9,8 +9,8 @@ const sessionEntrySchema = new mongoose.Schema({
 }, { timestamps: true })
 
 const noteSchema = new mongoose.Schema({
-  tutor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  student: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  tutor: { type: mongoose.Schema.Types.ObjectId, ref: 'Tutor', required: true },
+  student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
   lastSessionDate: { type: String, default: '' }, // for sidebar ordering
   entries: [sessionEntrySchema]
 }, { timestamps: true })

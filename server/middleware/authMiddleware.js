@@ -1,36 +1,42 @@
-const jwt = require('jsonwebtoken')
+const jwt     = require('jsonwebtoken')
+const Tutor   = require('../models/Tutor')
+const Student = require('../models/Student')
+const Owner   = require('../models/Owner')
 
-const protect = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1]
-  if (!token) return res.status(401).json({ message: 'No token, not authorized' })
+const protect = async (req, res, next) => {
+  const header = req.headers.authorization
+  if (!header?.startsWith('Bearer '))
+    return res.status(401).json({ message: 'Not authorised' })
+
   try {
+    const token   = header.split(' ')[1]
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
-    req.user = decoded
+
+    // Attach the right account type
+    if (decoded.role === 'tutor') {
+      req.user = await Tutor.findById(decoded.id).select('-password')
+    } else if (decoded.role === 'student') {
+      req.user = await Student.findById(decoded.id).select('-password')
+    } else if (decoded.role === 'owner') {
+      req.user = await Owner.findById(decoded.id).select('-password')
+    }
+
+    if (!req.user) return res.status(401).json({ message: 'Not authorised' })
+
+    req.role = decoded.role
     next()
   } catch (err) {
-    return res.status(401).json({ message: 'Invalid token' })
+    res.status(401).json({ message: 'Token invalid or expired' })
   }
 }
 
-const isAdmin = (req, res, next) => {
-  if (req.user.role !== 'admin')
-    return res.status(403).json({ message: 'Admin access only' })
-  next()
-}
+const tutorOnly  = (req, res, next) =>
+  req.role === 'tutor'  ? next() : res.status(403).json({ message: 'Tutors only' })
 
-const isTutor = (req, res, next) => {
-  if (req.user.role !== 'tutor' && req.user.role !== 'admin')
-    return res.status(403).json({ message: 'Tutor access only' })
-  next()
-}
+const studentOnly = (req, res, next) =>
+  req.role === 'student' ? next() : res.status(403).json({ message: 'Students only' })
 
-const isStudentOrParent = (req, res, next) => {
-  if (req.user.role !== 'student' && req.user.role !== 'parent')
-    return res.status(403).json({ message: 'Only students and parents can book slots' })
-  next()
-}
+const ownerOnly  = (req, res, next) =>
+  req.role === 'owner'  ? next() : res.status(403).json({ message: 'Owner only' })
 
-// alias so new admin routes work
-const adminOnly = isAdmin
-
-module.exports = { protect, isAdmin, adminOnly, isTutor, isStudentOrParent }
+module.exports = { protect, tutorOnly, studentOnly, ownerOnly }

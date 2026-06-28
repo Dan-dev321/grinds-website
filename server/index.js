@@ -46,12 +46,17 @@ const availabilityRoutes = require('./routes/availabilityRoutes')
 const feedbackRoutes = require('./routes/feedbackRoutes')
 const adminRoutes = require('./routes/adminRoutes')
 const noteRoutes = require('./routes/noteRoutes')
+const studentRoutes = require('./routes/studentRoutes');
+const sessionRoutes = require('./routes/sessionRoutes');
+
 
 app.use('/api/auth', authRoutes)
 app.use('/api/availability', availabilityRoutes)
 app.use('/api/feedback', feedbackRoutes)
 app.use('/api/admin', adminRoutes)
 app.use('/api/notes', noteRoutes)
+app.use('/api/students', studentRoutes);
+app.use('/api/sessions', sessionRoutes);
 
 // ========================
 // HEALTH CHECK
