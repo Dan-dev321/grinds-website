@@ -685,23 +685,33 @@ const Availability = () => {
 
                             {/* Non-available (booked/buffer) — tall block, starts at startTime row only */}
                             {nonAvailStarting.map(s => {
-                              const spanH   = spanCells(s)
-                              const isBooked = s.slotType === 'booked'
+                              const spanH = spanCells(s)
+                              const isMyBooking = s.slotType === 'booked' &&
+                                s.bookedBy?._id?.toString() === user?.id?.toString()
+                              const isOtherBooking = s.slotType === 'booked' && !isMyBooking
+
+                              // Show other students' bookings as just "taken" (grey), not red booked
+                              const bgColor     = isMyBooking ? '#fee2e2' : '#f3f4f6'
+                              const borderColor = isMyBooking ? '#ef4444' : '#d1d5db'
+                              const textColor   = isMyBooking ? '#b91c1c' : '#9ca3af'
+
                               return (
                                 <div
                                   key={s._id}
                                   className="absolute left-0.5 right-0.5 z-20 rounded border overflow-hidden px-1 py-0.5"
                                   style={{
-                                    height:      `${spanH * CELL_HEIGHT - 2}px`,
-                                    background:  isBooked ? '#fee2e2' : '#f3f4f6',
-                                    borderColor: isBooked ? '#ef4444' : '#d1d5db',
-                                    color:       isBooked ? '#b91c1c' : '#9ca3af',
+                                    height: `${spanH * CELL_HEIGHT - 2}px`,
+                                    background:  bgColor,
+                                    borderColor: borderColor,
+                                    color:       textColor,
                                   }}
                                 >
                                   <p className="text-xs font-bold leading-tight">
                                     {s.startTime}–{s.endTime}
                                   </p>
-                                  <p className="text-xs leading-tight opacity-60">{s.slotType}</p>
+                                  <p className="text-xs leading-tight opacity-60">
+                                    {isMyBooking ? 'Your booking' : isOtherBooking ? 'Taken' : s.slotType}
+                                  </p>
                                 </div>
                               )
                             })}

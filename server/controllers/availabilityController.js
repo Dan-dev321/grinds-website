@@ -127,6 +127,22 @@ const bookSlot = async (req, res) => {
     if (!startTime || !date || !tutorId)
       return res.status(400).json({ message: 'startTime, date and tutorId are required' })
 
+    // ── Prevent student booking same time twice ───────────────
+    const bookEndTime_check = toTime(toMins(startTime) + 60)
+    const existingBooking = await Availability.findOne({
+      bookedBy: req.user.id,
+      date,
+      slotType: 'booked',
+      startTime: { $lt: bookEndTime_check },
+      endTime:   { $gt: startTime }
+    })
+    if (existingBooking) {
+      return res.status(400).json({
+        message: 'You already have a booking during this time on this date'
+      })
+    }
+    // ─────────────────────────────────────────────────────────
+
     const bookStart   = toMins(startTime)
     const bookEnd     = bookStart + 60
     const bookEndTime = toTime(bookEnd)
