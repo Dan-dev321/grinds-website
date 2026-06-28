@@ -34,6 +34,7 @@ const AdminDashboard = () => {
   const [selectedUser, setSelectedUser] = useState(null)
   const [userStats, setUserStats]       = useState(null)
   const [modalLoading, setModalLoading] = useState(false)
+  const [showStats, setShowStats]       = useState(false)
 
   const flashSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3500) }
   const flashError   = (msg) => { setError(msg);   setTimeout(() => setError(''),   3500) }
@@ -135,7 +136,7 @@ const AdminDashboard = () => {
   const pendingFeedback  = feedback.filter(f => !f.approved)
   const approvedFeedback = feedback.filter(f =>  f.approved)
 
-  // ── Stat rows (overview) ──────────────────────────────────────
+  // ── Overview stat rows ────────────────────────────────────────
   const statRows = [
     {
       heading: '👥 People',
@@ -188,26 +189,26 @@ const AdminDashboard = () => {
       {
         heading: '📈 Outcomes',
         cards: [
-          { label: 'Completed',    value: userStats?.completed      ?? '…', icon: '✅', color: 'border-green-400'  },
-          { label: 'No-Shows',     value: userStats?.noShows        ?? '…', icon: '❌', color: 'border-red-400'    },
-          { label: 'Fav. Tutor',   value: userStats?.favouriteTutor ?? '…', icon: '🧑‍🏫', color: 'border-purple-400', small: true },
+          { label: 'Completed',  value: userStats?.completed      ?? '…', icon: '✅', color: 'border-green-400'  },
+          { label: 'No-Shows',   value: userStats?.noShows        ?? '…', icon: '❌', color: 'border-red-400'    },
+          { label: 'Fav. Tutor', value: userStats?.favouriteTutor ?? '…', icon: '🧑‍🏫', color: 'border-purple-400', small: true },
         ],
       },
     ] : [
       {
         heading: '📅 Sessions',
         cards: [
-          { label: 'Total Taught',  value: userStats?.totalSessions  ?? '…', icon: '📅', color: 'border-blue-400'   },
-          { label: 'Upcoming',      value: userStats?.upcoming        ?? '…', icon: '🔜', color: 'border-indigo-400' },
-          { label: 'This Week',     value: userStats?.thisWeek        ?? '…', icon: '📆', color: 'border-blue-300'   },
+          { label: 'Total Taught', value: userStats?.totalSessions  ?? '…', icon: '📅', color: 'border-blue-400'   },
+          { label: 'Upcoming',     value: userStats?.upcoming        ?? '…', icon: '🔜', color: 'border-indigo-400' },
+          { label: 'This Week',    value: userStats?.thisWeek        ?? '…', icon: '📆', color: 'border-blue-300'   },
         ],
       },
       {
         heading: '📈 Outcomes',
         cards: [
-          { label: 'Completed',       value: userStats?.completed       ?? '…', icon: '✅', color: 'border-green-400'  },
-          { label: 'No-Shows',        value: userStats?.noShows         ?? '…', icon: '❌', color: 'border-red-400'    },
-          { label: 'Unique Students', value: userStats?.uniqueStudents  ?? '…', icon: '🎓', color: 'border-purple-400' },
+          { label: 'Completed',       value: userStats?.completed      ?? '…', icon: '✅', color: 'border-green-400'  },
+          { label: 'No-Shows',        value: userStats?.noShows        ?? '…', icon: '❌', color: 'border-red-400'    },
+          { label: 'Unique Students', value: userStats?.uniqueStudents ?? '…', icon: '🎓', color: 'border-purple-400' },
         ],
       },
       {
@@ -324,7 +325,7 @@ const AdminDashboard = () => {
       <div className="max-w-6xl mx-auto">
 
         {/* ======= WELCOME HEADER ======= */}
-        <div className="bg-blue-700 text-white rounded-2xl p-8 mb-8 shadow-md">
+        <div className="bg-blue-700 text-white rounded-2xl p-8 mb-6 shadow-md">
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
               <h1 className="text-3xl font-extrabold mb-1">🛡️ Admin Dashboard</h1>
@@ -338,6 +339,43 @@ const AdminDashboard = () => {
           </div>
         </div>
 
+        {/* ======= STATS TOGGLE BUTTON ======= */}
+        <div className="mb-4">
+          <button
+            onClick={() => setShowStats(prev => !prev)}
+            className="flex items-center gap-2 bg-white border border-gray-200 hover:border-blue-400 hover:shadow-md text-gray-700 hover:text-blue-700 text-sm font-semibold px-5 py-2.5 rounded-xl shadow-sm transition"
+          >
+            <span className="text-base">📊</span>
+            {showStats ? 'Hide Stats' : 'Show Stats'}
+            <span className="text-xs text-gray-400 ml-1">{showStats ? '▲' : '▼'}</span>
+          </button>
+        </div>
+
+        {/* ======= STATS ROWS ======= */}
+        {showStats && (
+          <div className="flex flex-col gap-4 mb-8">
+            {statRows.map((row, ri) => (
+              <div key={ri}>
+                <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 pl-1">
+                  {row.heading}
+                </h2>
+                <div className="grid grid-cols-3 gap-4">
+                  {row.cards.map((stat, i) => (
+                    <div key={i} className={`bg-white rounded-2xl shadow-sm p-5 text-center border-t-4 ${stat.color}`}>
+                      <div className="text-3xl mb-1">{stat.icon}</div>
+                      <p className="text-3xl font-extrabold text-blue-700">{stat.value}</p>
+                      <p className="text-gray-500 text-xs mt-1">{stat.label}</p>
+                      {stat.tip && (
+                        <p className="text-gray-400 text-xs mt-0.5 italic">{stat.tip}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* ======= FLASH MESSAGES ======= */}
         {success && (
           <div className="mb-6 bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded-xl text-center font-medium text-sm">
@@ -349,29 +387,6 @@ const AdminDashboard = () => {
             {error}
           </div>
         )}
-
-        {/* ======= STATS ROWS ======= */}
-        <div className="flex flex-col gap-4 mb-8">
-          {statRows.map((row, ri) => (
-            <div key={ri}>
-              <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-2 pl-1">
-                {row.heading}
-              </h2>
-              <div className="grid grid-cols-3 gap-4">
-                {row.cards.map((stat, i) => (
-                  <div key={i} className={`bg-white rounded-2xl shadow-sm p-5 text-center border-t-4 ${stat.color}`}>
-                    <div className="text-3xl mb-1">{stat.icon}</div>
-                    <p className="text-3xl font-extrabold text-blue-700">{stat.value}</p>
-                    <p className="text-gray-500 text-xs mt-1">{stat.label}</p>
-                    {stat.tip && (
-                      <p className="text-gray-400 text-xs mt-0.5 italic">{stat.tip}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
 
         {/* ======= QUICK ACTIONS ======= */}
         <div className="mb-8">
@@ -385,7 +400,9 @@ const AdminDashboard = () => {
               <div className="text-3xl mb-3">👥</div>
               <h3 className="font-bold text-gray-800 mb-1">Manage Users</h3>
               <p className="text-gray-500 text-sm">
-                {stats ? `${stats.totalStudents + stats.totalTutors} registered users` : 'View, edit or remove user accounts'}
+                {stats
+                  ? `${stats.totalStudents + stats.totalTutors} registered users`
+                  : 'View, edit or remove user accounts'}
               </p>
             </button>
 
@@ -396,7 +413,9 @@ const AdminDashboard = () => {
               <div className="text-3xl mb-3">📅</div>
               <h3 className="font-bold text-gray-800 mb-1">Manage Bookings</h3>
               <p className="text-gray-500 text-sm">
-                {stats ? `${stats.totalSessions} total sessions` : 'View and manage all session bookings'}
+                {stats
+                  ? `${stats.totalSessions} total sessions`
+                  : 'View and manage all session bookings'}
               </p>
             </button>
 
