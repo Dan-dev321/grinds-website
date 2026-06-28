@@ -3,7 +3,6 @@ import { useAuth } from '../../context/AuthContext'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 
-//const API = import.meta.env.VITE_API_URL || 'http://localhost:5000'
 const API = import.meta.env.VITE_API_URL
 
 const formatDisplay = (dateStr) => {
@@ -46,14 +45,12 @@ const TutorDashboard = () => {
       setLoading(true)
       const { monday } = getWeekBounds()
 
-      // Fetch this week's slots
       const slotsRes = await axios.get(
         `${API}/api/availability?weekStart=${toDateStr(monday)}`,
         authHeader
       )
       setSlots(slotsRes.data)
 
-      // Fetch pending feedback count
       const feedbackRes = await axios.get(`${API}/api/feedback`)
       const pending = feedbackRes.data.filter(f => !f.approved)
       setPendingCount(pending.length)
@@ -104,6 +101,9 @@ const TutorDashboard = () => {
 
   // ── Derived stats ────────────────────────────────────────────
   const todayStr = toDateStr(new Date())
+  const now = new Date()
+  const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+
   const { monday, sunday } = getWeekBounds()
   const mondayStr = toDateStr(monday)
   const sundayStr = toDateStr(sunday)
@@ -114,19 +114,17 @@ const TutorDashboard = () => {
     s => s.date >= mondayStr && s.date <= sundayStr
   )
 
-  // Unique students booked this week
   const uniqueStudents = new Set(
     sessionsThisWeek.map(s => s.bookedBy?._id).filter(Boolean)
   ).size
 
-  // Upcoming booked sessions (today or later)
+  // Today's finished sessions move to past, not yet finished stay upcoming
   const upcomingSessions = bookedSlots
-    .filter(s => s.date >= todayStr)
+    .filter(s => s.date > todayStr || (s.date === todayStr && s.endTime > currentTime))
     .sort((a, b) => a.date.localeCompare(b.date) || a.startTime.localeCompare(b.startTime))
 
-  // Past booked sessions
   const pastSessions = bookedSlots
-    .filter(s => s.date < todayStr)
+    .filter(s => s.date < todayStr || (s.date === todayStr && s.endTime <= currentTime))
     .sort((a, b) => b.date.localeCompare(a.date))
 
   const stats = [
@@ -320,7 +318,6 @@ const TutorDashboard = () => {
                       </div>
                     </div>
 
-                    {/* Only show button if not already completed */}
                     {!isCompleted && (
                       <button
                         onClick={() => handleMarkComplete(slot._id)}
