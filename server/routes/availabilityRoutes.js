@@ -1,6 +1,9 @@
-const express = require('express')
-const router = express.Router()
-const { protect, isTutor, isStudentOrParent, adminOnly } = require('../middleware/authMiddleware')  // ✅ added adminOnly
+const express  = require('express')
+const router   = express.Router()
+
+const { protect, tutorOnly, studentOnly, ownerOnly } = require('../middleware/authMiddleware')
+const requireSubscription = require('../middleware/requireSubscription')
+
 const {
   addSlot,
   getSlotsByWeek,
@@ -10,17 +13,21 @@ const {
   unbookSlot,
   deleteSlot,
   copyDay,
-  getAllBookings   // ✅ added
+  getAllBookings,
 } = require('../controllers/availabilityController')
 
-router.get('/',                getSlotsByWeek)
-router.get('/all',             protect, isTutor,            getAllSlots)
-router.get('/my-bookings',     protect,                     getMyBookings)
-router.get('/all-bookings',    protect, adminOnly,          getAllBookings)   // ✅ added
-router.post('/',               protect, isTutor,            addSlot)
-router.post('/copy-day',       protect, isTutor,            copyDay)
-router.post('/book',           protect, isStudentOrParent,  bookSlot)
-router.put('/:id/unbook',      protect,                     unbookSlot)
-router.delete('/:id',          protect, isTutor,            deleteSlot)
+// ── Public / Read ─────────────────────────────────────────────────────────────
+// Cancelled tutors can still VIEW their data — never delete it
+router.get('/',             getSlotsByWeek)
+router.get('/all',          protect, tutorOnly,   getAllSlots)
+router.get('/my-bookings',  protect,              getMyBookings)
+router.get('/all-bookings', protect, ownerOnly,   getAllBookings)
+
+// ── Write — blocked if trial expired or cancelled ─────────────────────────────
+router.post('/',          protect, tutorOnly,   requireSubscription, addSlot)
+router.post('/copy-day',  protect, tutorOnly,   requireSubscription, copyDay)
+router.post('/book',      protect, studentOnly, requireSubscription, bookSlot)
+router.put('/:id/unbook', protect,              requireSubscription, unbookSlot)
+router.delete('/:id',     protect, tutorOnly,   requireSubscription, deleteSlot)
 
 module.exports = router

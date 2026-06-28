@@ -1,11 +1,13 @@
-// server/routes/sessionRoutes.js
-const express = require('express');
-const router  = express.Router();
+const express = require('express')
+const router  = express.Router()
 
-const { getMySessions } = require('../controllers/studentController');
-const { protect, studentOnly } = require('../middleware/authMiddleware');
+const { protect, studentOnly } = require('../middleware/authMiddleware')
+const requireSubscription      = require('../middleware/requireSubscription')
 
-// GET /api/sessions/mine — all sessions for the logged-in student
-router.get('/mine', protect, studentOnly, getMySessions);
+const { getMySessions } = require('../controllers/studentController')
 
-module.exports = router;
+// ── Read — always allowed ─────────────────────────────────────────────────────
+// Students can always view their own session history
+router.get('/mine', protect, studentOnly, getMySessions)
+
+module.exports = router

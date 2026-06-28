@@ -73,6 +73,12 @@ const registerStudent = async (req, res) => {
       role:    'student',
       tutorId: student.tutorId,
       token:   generateToken(student._id, 'student'),
+
+      subscription: {
+        status:    'trial',
+        trialEnds: tutor.subscription.trialEnds,
+        plan:      null,
+      },
     })
   } catch (err) {
     console.error('registerStudent:', err)
@@ -81,11 +87,11 @@ const registerStudent = async (req, res) => {
 }
 
 // ── Login (works for tutor, student, owner) ───────────────────
+// ── Login (works for tutor, student, owner) ───────────────────
 const login = async (req, res) => {
   try {
     const { email, password } = req.body
 
-    // Check each collection in order
     let account = await Tutor.findOne({ email })
     let role = 'tutor'
 
@@ -105,14 +111,33 @@ const login = async (req, res) => {
     const match = await account.matchPassword(password)
     if (!match)  return res.status(401).json({ message: 'Invalid credentials' })
 
-    res.json({
+    // Build base response
+    const response = {
       _id:     account._id,
       name:    account.name,
       email:   account.email,
       role,
       tutorId: account.tutorId || null,
       token:   generateToken(account._id, role),
-    })
+    }
+
+    // Attach subscription info for tutors so the frontend
+    // can gate access to the dashboard immediately on login
+    if (role === 'tutor') {
+      const { status, trialEnds, plan } = account.subscription
+
+      // Compute whether trial has silently expired
+      const trialExpired =
+        status === 'trial' && trialEnds && new Date() > new Date(trialEnds)
+
+      response.subscription = {
+        status:    trialExpired ? 'trial_expired' : status,
+        trialEnds: trialEnds ?? null,
+        plan:      plan ?? null,
+      }
+    }
+
+    res.json(response)
   } catch (err) {
     console.error('login:', err)
     res.status(500).json({ message: 'Login failed' })

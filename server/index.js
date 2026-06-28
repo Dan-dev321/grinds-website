@@ -8,7 +8,7 @@ dotenv.config()
 const app = express()
 
 // ========================
-// CORS CONFIG (FIXED)
+// CORS CONFIG
 // ========================
 const allowedOrigins = [
   'http://localhost:5173',
@@ -17,53 +17,49 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: function (origin, callback) {
-    // allow tools like Postman or server-to-server requests
     if (!origin) return callback(null, true)
-
-    // allow localhost + your Vercel frontend
-    if (
-      allowedOrigins.includes(origin) ||
-      origin.endsWith('.vercel.app')
-    ) {
+    if (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
       return callback(null, true)
     }
-
-    return callback(null, true) // TEMP: allow all origins to avoid deployment blocking
+    return callback(null, true)
   },
   credentials: true
 }))
 
 // ========================
-// MIDDLEWARE
+// ⚡ STRIPE WEBHOOK — raw body, MUST be before express.json()
+// ========================
+const stripeRoutes = require('./routes/stripeRoutes')
+app.use('/api/stripe', stripeRoutes)
+
+// ========================
+// MIDDLEWARE (after webhook)
 // ========================
 app.use(express.json())
 
 // ========================
 // ROUTES
 // ========================
-const authRoutes = require('./routes/authRoutes')
+const authRoutes         = require('./routes/authRoutes')
 const availabilityRoutes = require('./routes/availabilityRoutes')
-const feedbackRoutes = require('./routes/feedbackRoutes')
-const adminRoutes = require('./routes/adminRoutes')
-const noteRoutes = require('./routes/noteRoutes')
-const studentRoutes = require('./routes/studentRoutes');
-const sessionRoutes = require('./routes/sessionRoutes');
+const feedbackRoutes     = require('./routes/feedbackRoutes')
+const adminRoutes        = require('./routes/adminRoutes')
+const noteRoutes         = require('./routes/noteRoutes')
+const studentRoutes      = require('./routes/studentRoutes')
+const sessionRoutes      = require('./routes/sessionRoutes')
 
-
-app.use('/api/auth', authRoutes)
+app.use('/api/auth',         authRoutes)
 app.use('/api/availability', availabilityRoutes)
-app.use('/api/feedback', feedbackRoutes)
-app.use('/api/admin', adminRoutes)
-app.use('/api/notes', noteRoutes)
-app.use('/api/students', studentRoutes);
-app.use('/api/sessions', sessionRoutes);
+app.use('/api/feedback',     feedbackRoutes)
+app.use('/api/admin',        adminRoutes)
+app.use('/api/notes',        noteRoutes)
+app.use('/api/students',     studentRoutes)
+app.use('/api/sessions',     sessionRoutes)
 
 // ========================
 // HEALTH CHECK
 // ========================
-app.get('/', (req, res) => {
-  res.send('Server is running! ✅')
-})
+app.get('/', (req, res) => res.send('TutorBase server running ✅'))
 
 // ========================
 // DATABASE

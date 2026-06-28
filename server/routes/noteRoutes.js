@@ -1,23 +1,22 @@
 const express = require('express')
-const router = express.Router()
-const { protect, isTutor } = require('../middleware/authMiddleware')
+const router  = express.Router()
+
+const { protect, tutorOnly } = require('../middleware/authMiddleware')
+const requireSubscription    = require('../middleware/requireSubscription')
+
 const {
   completeSession,
   getNotebookStudents,
   getStudentNotes,
-  updateEntry
+  updateEntry,
 } = require('../controllers/noteController')
 
-// Mark a session complete (triggers notebook entry)
-router.put('/complete/:id',                    protect, isTutor, completeSession)
+// ── Read — always allowed ─────────────────────────────────────────────────────
+router.get('/students',                          protect, tutorOnly, getNotebookStudents)
+router.get('/student/:studentId',                protect, tutorOnly, getStudentNotes)
 
-// Get sidebar list of students
-router.get('/students',                        protect, isTutor, getNotebookStudents)
-
-// Get one student's full notes
-router.get('/student/:studentId',              protect, isTutor, getStudentNotes)
-
-// Update a specific session entry's notes
-router.put('/student/:studentId/entry/:entryId', protect, isTutor, updateEntry)
+// ── Write — blocked if trial expired or cancelled ─────────────────────────────
+router.put('/complete/:id',                      protect, tutorOnly, requireSubscription, completeSession)
+router.put('/student/:studentId/entry/:entryId', protect, tutorOnly, requireSubscription, updateEntry)
 
 module.exports = router
