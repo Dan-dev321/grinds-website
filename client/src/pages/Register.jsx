@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import axios from 'axios'
+import { useAuth } from '../context/AuthContext'
 
 const API = import.meta.env.VITE_API_URL
 
 const Register = () => {
-  const [searchParams]  = useSearchParams()
-  const navigate        = useNavigate()
+  const [searchParams] = useSearchParams()
+  const navigate       = useNavigate()
+  const { login }      = useAuth()
 
-  // If a ?code= param exists in the URL, default to student registration
-  const codeFromUrl     = searchParams.get('code') || ''
+  const codeFromUrl    = searchParams.get('code') || ''
   const [mode, setMode] = useState(codeFromUrl ? 'student' : 'tutor')
 
   const [form, setForm] = useState({
@@ -24,12 +25,34 @@ const Register = () => {
     e.preventDefault()
     setError('')
     setLoading(true)
+
     try {
-      const endpoint = mode === 'tutor'
-        ? `${API}/api/auth/register/tutor`
-        : `${API}/api/auth/register/student`
-      await axios.post(endpoint, form)
-      navigate('/login')
+      if (mode === 'tutor') {
+        // ✅ Only send what the tutor endpoint expects
+        const res = await axios.post(`${API}/api/auth/register/tutor`, {
+          name:         form.name,
+          email:        form.email,
+          password:     form.password,
+          businessName: form.businessName,
+        })
+        // Auto-login after registration
+        const { token, ...userData } = res.data
+        login(userData, token)
+        navigate('/dashboard/tutor')
+
+      } else {
+        // ✅ Only send what the student endpoint expects
+        const res = await axios.post(`${API}/api/auth/register/student`, {
+          name:       form.name,
+          email:      form.email,
+          password:   form.password,
+          inviteCode: form.inviteCode,
+        })
+        const { token, ...userData } = res.data
+        login(userData, token)
+        navigate('/dashboard/student')
+      }
+
     } catch (err) {
       setError(err.response?.data?.message || 'Registration failed')
     } finally {
@@ -38,34 +61,43 @@ const Register = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-sm p-8 w-full max-w-md">
+    <div className="min-h-screen bg-surface-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 w-full max-w-md p-8">
 
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-extrabold text-gray-900">TutorBase</h1>
-          <p className="text-gray-500 mt-1 text-sm">
+          <div className="w-12 h-12 bg-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+            <span className="text-white font-black text-lg">TB</span>
+          </div>
+          <h1 className="text-2xl font-extrabold text-gray-900">TutorBase</h1>
+          <p className="text-gray-400 mt-1 text-sm">
             {mode === 'tutor'
               ? 'Start your free 14-day trial'
-              : 'Join your tutor\'s workspace'}
+              : "Join your tutor's workspace"}
           </p>
         </div>
 
-        {/* Mode toggle — only show if no code in URL */}
+        {/* Mode toggle — hidden if invite code in URL */}
         {!codeFromUrl && (
           <div className="flex bg-gray-100 rounded-xl p-1 mb-6">
             <button
+              type="button"
               onClick={() => setMode('tutor')}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition ${
-                mode === 'tutor' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-150 ${
+                mode === 'tutor'
+                  ? 'bg-white shadow-sm text-gray-900'
+                  : 'text-gray-400 hover:text-gray-600'
               }`}
             >
               I'm a Tutor
             </button>
             <button
+              type="button"
               onClick={() => setMode('student')}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition ${
-                mode === 'student' ? 'bg-white shadow text-gray-900' : 'text-gray-500'
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-150 ${
+                mode === 'student'
+                  ? 'bg-white shadow-sm text-gray-900'
+                  : 'text-gray-400 hover:text-gray-600'
               }`}
             >
               I'm a Student
@@ -73,39 +105,52 @@ const Register = () => {
           </div>
         )}
 
+        {/* Error */}
         {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl">
-            {error}
+          <div className="mb-5 bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-xl">
+            ⚠️ {error}
           </div>
         )}
 
         <form onSubmit={submit} className="flex flex-col gap-4">
+
           <input
-            name="name" placeholder="Full name" value={form.name}
-            onChange={handle} required
-            className="border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-sky-400"
+            name="name"
+            placeholder="Full name"
+            value={form.name}
+            onChange={handle}
+            required
+            className="input"
           />
           <input
-            name="email" type="email" placeholder="Email" value={form.email}
-            onChange={handle} required
-            className="border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-sky-400"
+            name="email"
+            type="email"
+            placeholder="Email address"
+            value={form.email}
+            onChange={handle}
+            required
+            className="input"
           />
           <input
-            name="password" type="password" placeholder="Password" value={form.password}
-            onChange={handle} required
-            className="border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-sky-400"
+            name="password"
+            type="password"
+            placeholder="Password"
+            value={form.password}
+            onChange={handle}
+            required
+            className="input"
           />
 
-          {/* Tutor only */}
           {mode === 'tutor' && (
             <input
-              name="businessName" placeholder="Business name (optional)" value={form.businessName}
+              name="businessName"
+              placeholder="Business name (optional)"
+              value={form.businessName}
               onChange={handle}
-              className="border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-sky-400"
+              className="input"
             />
           )}
 
-          {/* Student only */}
           {mode === 'student' && (
             <input
               name="inviteCode"
@@ -113,21 +158,29 @@ const Register = () => {
               value={form.inviteCode}
               onChange={handle}
               required
-              className="border border-gray-200 rounded-xl px-4 py-3 text-sm font-mono uppercase tracking-widest focus:outline-none focus:border-sky-400"
+              className="input font-mono uppercase tracking-widest"
             />
           )}
 
           <button
-            type="submit" disabled={loading}
-            className="bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 rounded-xl transition text-sm mt-2"
+            type="submit"
+            disabled={loading}
+            className="btn-primary w-full mt-2"
           >
-            {loading ? 'Creating account...' : mode === 'tutor' ? 'Start Free Trial' : 'Join Workspace'}
+            {loading
+              ? 'Creating account…'
+              : mode === 'tutor'
+              ? 'Start Free Trial'
+              : 'Join Workspace'}
           </button>
+
         </form>
 
         <p className="text-center text-gray-400 text-sm mt-6">
           Already have an account?{' '}
-          <Link to="/login" className="text-sky-600 font-semibold hover:underline">Log in</Link>
+          <Link to="/login" className="text-brand-600 font-semibold hover:underline">
+            Log in
+          </Link>
         </p>
 
       </div>
