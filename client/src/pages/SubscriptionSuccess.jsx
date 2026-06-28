@@ -1,10 +1,10 @@
-import { useEffect, useState, useContext } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import AuthContext from '../context/AuthContext'
+import { useAuth } from '../context/AuthContext'
 
 const SubscriptionSuccess = () => {
   const [searchParams]  = useSearchParams()
-  const { user }        = useContext(AuthContext)
+  const { user } = useAuth()
   const [status, setStatus] = useState('loading') // loading | success | error
 
   useEffect(() => {

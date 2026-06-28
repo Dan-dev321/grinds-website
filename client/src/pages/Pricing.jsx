@@ -1,6 +1,6 @@
-import { useState, useContext } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import AuthContext from '../context/AuthContext'
+import { useAuth } from '../context/AuthContext'
 
 const PLANS = [
   {
@@ -85,7 +85,7 @@ const FAQ = [
 ]
 
 const Pricing = () => {
-  const { user } = useContext(AuthContext)
+  const { user } = useAuth()
   const navigate  = useNavigate()
   const location  = useLocation()
 
