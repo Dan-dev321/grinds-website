@@ -27,13 +27,13 @@ app.use(cors({
 }))
 
 // ========================
-// ⚡ STRIPE WEBHOOK — raw body, MUST be before express.json()
+// ⚡ STRIPE WEBHOOK — must be before express.json()
 // ========================
 const stripeRoutes = require('./routes/stripeRoutes')
 app.use('/api/stripe', stripeRoutes)
 
 // ========================
-// MIDDLEWARE (after webhook)
+// MIDDLEWARE
 // ========================
 app.use(express.json())
 
@@ -42,7 +42,6 @@ app.use(express.json())
 // ========================
 const authRoutes         = require('./routes/authRoutes')
 const availabilityRoutes = require('./routes/availabilityRoutes')
-const feedbackRoutes     = require('./routes/feedbackRoutes')
 const adminRoutes        = require('./routes/adminRoutes')
 const noteRoutes         = require('./routes/noteRoutes')
 const studentRoutes      = require('./routes/studentRoutes')
@@ -50,11 +49,12 @@ const sessionRoutes      = require('./routes/sessionRoutes')
 
 app.use('/api/auth',         authRoutes)
 app.use('/api/availability', availabilityRoutes)
-app.use('/api/feedback',     feedbackRoutes)
 app.use('/api/admin',        adminRoutes)
 app.use('/api/notes',        noteRoutes)
 app.use('/api/students',     studentRoutes)
 app.use('/api/sessions',     sessionRoutes)
+
+// ✅ feedbackRoutes deliberately removed — Feedback is not part of TutorBase
 
 // ========================
 // HEALTH CHECK
