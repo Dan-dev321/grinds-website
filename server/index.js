@@ -49,7 +49,7 @@ const sessionRoutes      = require('./routes/sessionRoutes')
 
 app.use('/api/auth',         authRoutes)
 app.use('/api/availability', availabilityRoutes)
-app.use('/api/admin',        ownerRoutes)
+app.use('/api/owner',        ownerRoutes)
 app.use('/api/notes',        noteRoutes)
 app.use('/api/students',     studentRoutes)
 app.use('/api/sessions',     sessionRoutes)

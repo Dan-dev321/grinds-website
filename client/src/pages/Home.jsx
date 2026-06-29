@@ -153,12 +153,12 @@ const Home = () => {
             >
               Start your free trial →
             </Link>
-            <Link
-              to="/features"
+            
+            <a href="#how-it-works"
               className="border border-brand-400 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-brand-700 transition-all duration-150 text-base"
             >
               See how it works
-            </Link>
+            </a>
           </div>
 
           {/* Social proof */}
@@ -204,7 +204,7 @@ const Home = () => {
       </section>
 
       {/* ======= HOW IT WORKS ======= */}
-      <section className="py-20 px-4 bg-surface-100">
+      <section id="how-it-works" className="py-20 px-4 bg-surface-100">
         <div className="max-w-4xl mx-auto">
 
           <div className="text-center mb-14">
