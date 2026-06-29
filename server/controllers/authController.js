@@ -87,7 +87,6 @@ const registerStudent = async (req, res) => {
 }
 
 // ── Login (works for tutor, student, owner) ───────────────────
-// ── Login (works for tutor, student, owner) ───────────────────
 const login = async (req, res) => {
   try {
     const { email, password } = req.body
@@ -121,7 +120,7 @@ const login = async (req, res) => {
       token:   generateToken(account._id, role),
     }
 
-    // Attach subscription info for tutors so the frontend
+    // Attach subscription info + invite code for tutors so the frontend
     // can gate access to the dashboard immediately on login
     if (role === 'tutor') {
       const { status, trialEnds, plan } = account.subscription
@@ -135,6 +134,8 @@ const login = async (req, res) => {
         trialEnds: trialEnds ?? null,
         plan:      plan ?? null,
       }
+
+      response.inviteCode = account.inviteCode
     }
 
     res.json(response)
