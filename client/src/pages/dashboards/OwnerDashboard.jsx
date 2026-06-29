@@ -32,7 +32,7 @@ const OwnerDashboard = () => {
     const fetchBilling = async () => {
       try {
         setLoading(true)
-        const res = await axios.get(`${API}/api/admin/billing`, authHeader)
+        const res = await axios.get(`${API}/api/owner/billing`, authHeader)
         setData(res.data)
       } catch (err) {
         setError(err.response?.data?.message || 'Failed to load billing data')
