@@ -198,8 +198,14 @@ const Availability = () => {
   // ── Book ────────────────────────────────────────────────────────
   const bookSlot = async (date, block) => {
     try {
+      // Find the available slot covering this block to get its tutorId,
+      // since the backend route still requires tutorId in the body.
+      const matchingSlot = getSlotsAt(date, block.startTime)
+        .find(s => s.slotType === 'available')
+      const tutorId = matchingSlot?.tutor?._id?.toString() || matchingSlot?.tutor?.toString()
+
       await axios.post(`${API}/api/availability/book`,
-        { date, startTime: block.startTime },
+        { date, startTime: block.startTime, tutorId },
         authHeader
       )
       flashSuccess(`Booked: ${block.startTime}–${block.endTime} 🎉`)
