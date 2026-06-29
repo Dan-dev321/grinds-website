@@ -50,65 +50,57 @@ const Availability = () => {
   const isStudentOrParent = user?.role === 'student' || user?.role === 'parent'
   const authHeader        = token ? { headers: { Authorization: `Bearer ${token}` } } : {}
 
+  // ── Week state ───────────────────────────────────────────────
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()))
-
   const weekDates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart)
     d.setDate(weekStart.getDate() + i)
     return formatDate(d)
   })
-
   const todayStr = formatDate(new Date())
 
-  const [slots, setSlots]           = useState([])
-  const [myBookings, setMyBookings] = useState([])
-  const [loading, setLoading]       = useState(true)
-  const [success, setSuccess]       = useState('')
-  const [error, setError]           = useState('')
-  const [copying, setCopying]       = useState(false)
+  const prevWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() - 7); setWeekStart(d) }
+  const nextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d) }
 
-  // tutor drag
-  const [selecting, setSelecting]   = useState(false)
-  const [selectDate, setSelectDate] = useState(null)
+  // ── Data state ───────────────────────────────────────────────
+  const [slots, setSlots]             = useState([])
+  const [myBookings, setMyBookings]   = useState([])
+  const [loading, setLoading]         = useState(true)
+  const [success, setSuccess]         = useState('')
+  const [error, setError]             = useState('')
+  const [copying, setCopying]         = useState(false)
+
+  // ── Drag state (tutor) ──────────────────────────────────────
+  const [selecting, setSelecting]     = useState(false)
+  const [selectDate, setSelectDate]   = useState(null)
   const [selectStart, setSelectStart] = useState(null)
-  const [selectEnd, setSelectEnd]   = useState(null)
+  const [selectEnd, setSelectEnd]     = useState(null)
 
-  // student hover (GRID BASED)
-  const [hoverDate, setHoverDate]   = useState(null)
-  const [hoverTime, setHoverTime]   = useState(null)
+  // ── Student hover state ──────────────────────────────────────
+  const [hoverDate, setHoverDate]     = useState(null)
+  const [hoverTime, setHoverTime]     = useState(null)
 
   const flashSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3500) }
-  const flashError   = (msg) => { setError(msg); setTimeout(() => setError(''), 3500) }
+  const flashError   = (msg) => { setError(msg);   setTimeout(() => setError(''), 3500) }
 
-  // ─── GRID-BASED HOVER PREVIEW (NEW SYSTEM) ────────────────────────────────
-  const getHoverPreview = (date, time) => {
-    if (!isStudentOrParent) return null
-
-    const startMins = toMins(time)
-    const endMins = startMins + (SLOT_MINS * MIN_CELLS)
-
-    for (let mins = startMins; mins < endMins; mins += SLOT_MINS) {
-      const slotTime = toTime(mins)
-
-      const available = getSlotsAt(date, slotTime)
-        .some(s => s.slotType === 'available')
-
-      if (!available) return null
-    }
-
-    return {
-      startTime: time,
-      endTime: toTime(endMins)
+  // ── Cleanup stale slots (>48hrs old) ─────────────────────────
+  const cleanupStaleSlots = async () => {
+    if (!isTutor) return
+    try {
+      await axios.delete(`${API}/api/availability/cleanup`, authHeader)
+    } catch (err) {
+      console.error('Stale slot cleanup failed:', err)
     }
   }
 
-  const hoverPreview = getHoverPreview(hoverDate, hoverTime)
-
-  // ─── DATA ────────────────────────────────────────────────────────────────
+  // ── Fetch ────────────────────────────────────────────────────
   const fetchSlots = async () => {
     try {
       setLoading(true)
-      const res = await axios.get(`${API}/api/availability?weekStart=${formatDate(weekStart)}`)
+      await cleanupStaleSlots()
+      const res = await axios.get(
+        `${API}/api/availability?weekStart=${formatDate(weekStart)}`
+      )
       setSlots(res.data)
     } catch {
       flashError('Failed to load slots')
@@ -121,7 +113,9 @@ const Availability = () => {
     try {
       const res = await axios.get(`${API}/api/availability/my-bookings`, authHeader)
       setMyBookings(res.data)
-    } catch {}
+    } catch (err) {
+      console.error('Failed to fetch bookings')
+    }
   }
 
   useEffect(() => {
@@ -129,9 +123,11 @@ const Availability = () => {
     if (isStudentOrParent) fetchMyBookings()
   }, [weekStart, user])
 
-  // ─── FILTER ────────────────────────────────────────────────────────────────
+  // ── Visibility filter ─────────────────────────────────────────
+  // Each board belongs to exactly one tutor:
+  // - Tutors see only their own slots
+  // - Students/parents see only their assigned tutor's slots
   const boardTutorId = isTutor ? user.id : user?.tutorId
-
   const visibleSlots = boardTutorId
     ? slots.filter(s => {
         const sid = s.tutor?._id?.toString() || s.tutor?.toString()
@@ -139,8 +135,8 @@ const Availability = () => {
       })
     : slots
 
-  const getSlotsForDate = (date) =>
-    visibleSlots.filter(s => s.date === date)
+  // ── Slot helpers ──────────────────────────────────────────────
+  const getSlotsForDate = (date) => visibleSlots.filter(s => s.date === date)
 
   const getSlotsAt = (date, time) =>
     getSlotsForDate(date).filter(s => time >= s.startTime && time < s.endTime)
@@ -148,17 +144,83 @@ const Availability = () => {
   const spanCells = (slot) =>
     (toMins(slot.endTime) - toMins(slot.startTime)) / SLOT_MINS
 
-  // ─── STUDENT CLICK (UPDATED) ───────────────────────────────────────────────
-  const handleStudentClick = async (date, time) => {
-    if (!isStudentOrParent) return
+  // ── Student: check 1hr block is all-available ────────────────
+  const getStudentBlock = (date, hoveredTime) => {
+    if (!date || !hoveredTime) return null
+    const startMins = toMins(hoveredTime)
+    const endMins = startMins + 60
 
-    const preview = getHoverPreview(date, time)
+    // Make sure every 15-minute chunk for the next hour is available
+    for (let mins = startMins; mins < endMins; mins += SLOT_MINS) {
+      const available = getSlotsAt(date, toTime(mins))
+        .some(s => s.slotType === 'available')
 
-    if (!preview) {
-      flashError('Need 1 continuous hour available')
-      return
+      if (!available) return null
     }
 
+    return {
+      startTime: toTime(startMins),
+      endTime: toTime(endMins)
+    }
+  }
+
+  // ── Hover block (the single source of truth for the preview) ──
+  const getHoverBlock = () => {
+    if (!hoverDate || !hoverTime || !isStudentOrParent) return null
+    return getStudentBlock(hoverDate, hoverTime)
+  }
+
+  const hoverBlock = getHoverBlock()
+
+  // ── Tutor drag ────────────────────────────────────────────────
+  const handleCellMouseDown = (date, time) => {
+    if (!isTutor) return
+    const existingHere = getSlotsAt(date, time).length > 0
+    if (existingHere) return
+    setSelecting(true)
+    setSelectDate(date)
+    setSelectStart(time)
+    setSelectEnd(addMins(time, SLOT_MINS))
+  }
+
+  const handleCellMouseEnter = (date, time) => {
+    if (selecting && date === selectDate && toMins(time) >= toMins(selectStart)) {
+      setSelectEnd(addMins(time, SLOT_MINS))
+    }
+    if (isStudentOrParent) {
+      setHoverDate(date)
+      setHoverTime(time)
+    }
+  }
+
+  const handleMouseUp = async () => {
+    if (!selecting) return
+    setSelecting(false)
+    const durationCells = (toMins(selectEnd) - toMins(selectStart)) / SLOT_MINS
+    if (durationCells < MIN_CELLS) {
+      flashError('Minimum slot length is 1 hour — drag further down')
+      setSelectDate(null); setSelectStart(null); setSelectEnd(null)
+      return
+    }
+    try {
+      await axios.post(`${API}/api/availability`, {
+        date: selectDate, startTime: selectStart, endTime: selectEnd
+      }, authHeader)
+      flashSuccess(`Slot added: ${selectStart}–${selectEnd} on ${formatDisplay(selectDate)} ✅`)
+      fetchSlots()
+    } catch (err) {
+      flashError(err.response?.data?.message || 'Failed to create slot')
+    }
+    setSelectDate(null); setSelectStart(null); setSelectEnd(null)
+  }
+
+  // ── Student click → book ──────────────────────────────────────
+  const handleStudentClick = async (date, time) => {
+    if (!isStudentOrParent) return
+    if (!hoverBlock || hoverDate !== date || hoverTime !== time) {
+      flashError('Not enough consecutive time here for a 1-hour session')
+      return
+    }
     const availableSlot = getSlotsAt(date, time)
       .find(s => s.slotType === 'available')
 
@@ -173,8 +235,7 @@ const Availability = () => {
         startTime: time,
         tutorId: availableSlot.tutor?._id?.toString() || availableSlot.tutor?.toString()
       }, authHeader)
-
-      flashSuccess(`Booked: ${preview.startTime}–${preview.endTime} 🎉`)
+      flashSuccess(`Booked: ${hoverBlock.startTime}–${hoverBlock.endTime} 🎉`)
       fetchSlots()
       fetchMyBookings()
     } catch (err) {
@@ -182,124 +243,387 @@ const Availability = () => {
     }
   }
 
-  // ─── HOVER HANDLER ─────────────────────────────────────────────────────────
-  const handleCellMouseEnter = (date, time) => {
-    if (isStudentOrParent) {
-      setHoverDate(date)
-      setHoverTime(time)
+  // ── Unbook ────────────────────────────────────────────────────
+  const handleUnbook = async (slotId) => {
+    try {
+      await axios.put(`${API}/api/availability/${slotId}/unbook`, {}, authHeader)
+      flashSuccess('Booking cancelled ✅')
+      fetchSlots()
+      fetchMyBookings()
+    } catch (err) {
+      flashError(err.response?.data?.message || 'Failed to cancel')
     }
   }
 
-  const handleCellMouseDown = (date, time) => {
-    if (!isTutor) return
-    const existingHere = getSlotsAt(date, time).length > 0
-    if (existingHere) return
-    setSelecting(true)
-    setSelectDate(date)
-    setSelectStart(time)
-    setSelectEnd(addMins(time, SLOT_MINS))
+  // ── Delete ────────────────────────────────────────────────────
+  const handleDelete = async (slotId) => {
+    if (!window.confirm('Delete this slot?')) return
+    try {
+      await axios.delete(`${API}/api/availability/${slotId}`, authHeader)
+      flashSuccess('Slot deleted')
+      fetchSlots()
+    } catch {
+      flashError('Failed to delete slot')
+    }
   }
 
-  const handleMouseUp = async () => {
-    if (!selecting) return
-    setSelecting(false)
-
+  // ── Copy Week ─────────────────────────────────────────────────
+  const handleCopyWeek = async () => {
     try {
-      await axios.post(`${API}/api/availability`, {
-        date: selectDate,
-        startTime: selectStart,
-        endTime: selectEnd
-      }, authHeader)
+      setCopying(true)
+      const nextMonday = new Date(weekStart)
+      nextMonday.setDate(weekStart.getDate() + 7)
 
-      flashSuccess('Slot added')
+      const results = await Promise.all(
+        Array.from({ length: 7 }, (_, i) => {
+          const fromDate = new Date(weekStart)
+          fromDate.setDate(weekStart.getDate() + i)
+          const toDate = new Date(nextMonday)
+          toDate.setDate(nextMonday.getDate() + i)
+          return axios.post(
+            `${API}/api/availability/copy-day`,
+            { fromDate: formatDate(fromDate), toDate: formatDate(toDate) },
+            authHeader
+          )
+        })
+      )
+
+      const totalCopied = results.reduce((sum, r) => sum + (r.data.created ?? 0), 0)
+      flashSuccess(`Week copied to ${formatDisplay(formatDate(nextMonday))} ✅ (${totalCopied} slots)`)
       fetchSlots()
     } catch (err) {
-      flashError(err.response?.data?.message || 'Failed')
+      flashError(err.response?.data?.message || 'Failed to copy week')
+    } finally {
+      setCopying(false)
     }
-
-    setSelectDate(null)
-    setSelectStart(null)
-    setSelectEnd(null)
   }
 
-  // ─── RENDER ───────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-2 select-none"
+    <div
+      className="min-h-screen bg-gray-50 py-10 px-2 select-none"
       onMouseUp={handleMouseUp}
       onMouseLeave={() => {
         if (selecting) handleMouseUp()
-        setHoverDate(null)
-        setHoverTime(null)
+        setHoverDate(null); setHoverTime(null)
       }}
     >
       <div className="max-w-7xl mx-auto">
 
-        {/* GRID */}
-        <div className="bg-white rounded-2xl overflow-x-auto">
-          <div className="min-w-[700px]">
+        {/* Header */}
+        <div className="text-center mb-6">
+          <h1 className="text-4xl font-extrabold text-gray-800 mb-2">📅 Availability</h1>
+          <p className="text-gray-500 text-sm">
+            {isTutor
+              ? 'Click and drag to create a slot (minimum 1 hour)'
+              : 'Hover to preview your session — click to book'}
+          </p>
+        </div>
 
-            {/* headers */}
-            <div className="grid" style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
-              <div />
-              {weekDates.map(date => (
-                <div key={date} className="text-center border-l text-xs py-2">
-                  {formatDisplay(date)}
+        {/* Flash messages */}
+        {success && (
+          <div className="mb-4 bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded-xl text-center font-medium text-sm">
+            {success}
+          </div>
+        )}
+        {error && (
+          <div className="mb-4 bg-red-100 border border-red-300 text-red-700 px-4 py-3 rounded-xl text-center font-medium text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Not logged in CTA */}
+        {!user && (
+          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-6 text-center">
+            <p className="text-blue-800 font-semibold text-lg mb-1">👋 Want to book a session?</p>
+            <p className="text-blue-600 text-sm mb-4">
+              Create a free account or log in to reserve your spot.
+            </p>
+            <div className="flex justify-center gap-3">
+              <Link to="/register"
+                className="bg-blue-700 text-white px-6 py-2 rounded-full font-semibold hover:bg-blue-800 transition text-sm">
+                Register Free
+              </Link>
+              <Link to="/login"
+                className="border-2 border-blue-700 text-blue-700 px-6 py-2 rounded-full font-semibold hover:bg-blue-100 transition text-sm">
+                Log In
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Tutor: Copy Week Panel */}
+        {isTutor && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4 flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-gray-800">📋 Copy This Week</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Copies {formatDisplay(weekDates[0])} – {formatDisplay(weekDates[6])} → next week
+              </p>
+              <p className="text-xs text-gray-400">
+                ⚠️ Existing unbooked slots on next week will be replaced
+              </p>
+            </div>
+            <button
+              onClick={handleCopyWeek}
+              disabled={copying}
+              className="bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-800 transition disabled:opacity-50"
+            >
+              {copying ? 'Copying...' : 'Copy Week →'}
+            </button>
+          </div>
+        )}
+
+        {/* Week Navigation */}
+        <div className="flex items-center justify-between mb-3 bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-3">
+          <button onClick={prevWeek}
+            className="text-blue-700 font-bold text-xl hover:text-blue-900 px-2">←</button>
+          <div className="text-center">
+            <p className="font-bold text-gray-800 text-sm">
+              {formatDisplay(weekDates[0])} – {formatDisplay(weekDates[6])}
+            </p>
+            <p className="text-xs text-gray-400">{new Date(weekStart).getFullYear()}</p>
+          </div>
+          <button onClick={nextWeek}
+            className="text-blue-700 font-bold text-xl hover:text-blue-900 px-2">→</button>
+        </div>
+
+        {/* Calendar Grid */}
+        {loading ? (
+          <div className="text-center py-24 text-gray-400">
+            <div className="text-5xl mb-3">⏳</div>
+            <p>Loading calendar...</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
+            <div className="min-w-[700px]">
+
+              {/* Day headers */}
+              <div className="grid border-b border-gray-100"
+                style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
+                <div className="py-2" />
+                {weekDates.map((date, i) => (
+                  <div key={date}
+                    className={`py-2 text-center border-l border-gray-100 ${date === todayStr ? 'bg-blue-50' : ''}`}>
+                    <p className={`text-xs font-bold uppercase ${date === todayStr ? 'text-blue-700' : 'text-gray-500'}`}>
+                      {DAY_LABELS[i]}
+                    </p>
+                    <p className={`text-xs font-semibold ${date === todayStr ? 'text-blue-700' : 'text-gray-600'}`}>
+                      {formatDisplay(date)}
+                    </p>
+                    {date === todayStr && (
+                      <span className="text-xs bg-blue-700 text-white px-1.5 py-0.5 rounded-full">
+                        Today
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Time rows */}
+              {timeSlots.map((time, rowIdx) => (
+                <div key={time} className="grid"
+                  style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
+
+                  {/* Time label */}
+                  <div className="relative flex items-start justify-end pr-1.5"
+                    style={{ height: `${CELL_HEIGHT}px` }}>
+                    {(time.endsWith(':00') || time.endsWith(':30')) && (
+                      <span className="text-xs text-gray-400 leading-none"
+                        style={{ marginTop: '-6px' }}>
+                        {time}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Day cells */}
+                  {weekDates.map((date) => {
+                    const slotsHere = getSlotsAt(date, time)
+                    const inSel     = selecting && date === selectDate &&
+                                       time >= selectStart && time < selectEnd
+
+                    // Tutor: tall block view
+                    const startingSlot = slotsHere.find(s => s.startTime === time)
+                    const slotSpan = startingSlot ? spanCells(startingSlot) : 0
+
+                    // Per-cell hover highlight — evaluated fresh for THIS row/day,
+                    // independent of where the underlying slot starts.
+                    const inHoverBlock =
+                      isStudentOrParent &&
+                      hoverBlock &&
+                      date === hoverDate &&
+                      toMins(time) >= toMins(hoverBlock.startTime) &&
+                      toMins(time) < toMins(hoverBlock.endTime)
+
+                    const cellSlotType = slotsHere[0]?.slotType
+
+                    return (
+                      <div
+                        key={date}
+                        className={`
+                          relative border-l border-gray-100
+                          ${rowIdx % 2 === 0 ? 'border-t border-gray-50' : ''}
+                          ${date === todayStr ? 'bg-blue-50/20' : ''}
+                          ${inSel ? 'bg-blue-200' : ''}
+                          ${isTutor && slotsHere.length === 0 ? 'hover:bg-blue-50 cursor-crosshair' : ''}
+                          ${isStudentOrParent && cellSlotType === 'available' ? 'cursor-pointer' : ''}
+                        `}
+                        style={{ height: `${CELL_HEIGHT}px` }}
+                        onMouseDown={() => handleCellMouseDown(date, time)}
+                        onMouseEnter={() => handleCellMouseEnter(date, time)}
+                        onClick={() => isStudentOrParent && handleStudentClick(date, time)}
+                      >
+                        {startingSlot && (
+                          <div
+                            className={`
+                              absolute left-0.5 right-0.5 z-10 rounded border overflow-hidden flex flex-col justify-between px-1 py-0.5
+                              ${startingSlot.slotType === 'available'
+                                ? 'bg-green-100 border-green-400 text-green-700'
+                                : startingSlot.slotType === 'booked'
+                                  ? 'bg-red-100 border-red-400 text-red-700'
+                                  : 'bg-gray-100 border-gray-300 text-gray-400'}
+                            `}
+                            style={{ height: `${slotSpan * CELL_HEIGHT - 2}px` }}
+                            onMouseDown={e => e.stopPropagation()}
+                          >
+                            <div>
+                              <p className="text-xs font-bold leading-tight">
+                                {startingSlot.startTime}–{startingSlot.endTime}
+                              </p>
+                              {startingSlot.slotType === 'booked' && startingSlot.bookedBy && (
+                                <p className="text-xs leading-tight truncate opacity-80">
+                                  {isTutor
+                                    ? startingSlot.bookedBy.name
+                                    : 'Your booking'}
+                                </p>
+                              )}
+                            </div>
+                            {isTutor && startingSlot.slotType === 'available' && slotSpan * CELL_HEIGHT >= 40 && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); handleDelete(startingSlot._id) }}
+                                className="text-xs rounded px-1 py-0.5 self-start hover:opacity-80 transition bg-red-100 text-red-500"
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Hover preview overlay — drawn per-cell, only over the
+                            4 segments (1hr) actually under the cursor, on top of
+                            whatever slot box is underneath. */}
+                        {inHoverBlock && (
+                          <div className="absolute inset-0 z-20 bg-blue-300/50 ring-1 ring-blue-500 pointer-events-none" />
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               ))}
             </div>
+          </div>
+        )}
 
-            {/* rows */}
-            {timeSlots.map((time, rowIdx) => (
-              <div key={time} className="grid"
-                style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
+        {/* Legend */}
+        <div className="flex flex-wrap gap-4 mt-3 justify-center text-xs text-gray-500">
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded bg-green-100 border border-green-400 inline-block" />
+            Available
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded bg-red-100 border border-red-300 inline-block" />
+            Booked
+          </span>
+          <span className="flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded bg-gray-100 border border-gray-300 inline-block" />
+            Unavailable
+          </span>
+          {isTutor && (
+            <span className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded bg-blue-200 inline-block" />
+              Selecting
+            </span>
+          )}
+        </div>
 
-                <div className="text-xs text-gray-400 pr-1 text-right">
-                  {(time.endsWith(':00') || time.endsWith(':30')) ? time : ''}
-                </div>
+        {/* Student: My Bookings */}
+        {isStudentOrParent && (
+          <div className="mt-10">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">📌 My Bookings</h2>
+            {myBookings.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 shadow-sm text-gray-400">
+                <div className="text-4xl mb-3">🗓️</div>
+                <p className="font-medium">No bookings yet — click a slot above!</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {myBookings.map(slot => (
+                  <div key={slot._id}
+                    className="bg-white rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm border border-gray-100">
+                    <div className="flex items-center gap-4">
+                      <div className="text-2xl">✅</div>
+                      <div>
+                        <p className="font-semibold text-gray-800 text-sm">
+                          {slot.dayOfWeek} — {formatDisplay(slot.date)}
+                        </p>
+                        <p className="text-xs text-gray-500">{slot.startTime} – {slot.endTime}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => handleUnbook(slot._id)}
+                      className="bg-red-100 text-red-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-red-200 transition self-start sm:self-auto">
+                      Cancel Booking
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
-                {weekDates.map(date => {
-                  const slotsHere = getSlotsAt(date, time)
-
-                  const inHover =
-                    hoverPreview &&
-                    date === hoverDate &&
-                    toMins(time) >= toMins(hoverPreview.startTime) &&
-                    toMins(time) < toMins(hoverPreview.endTime)
-
-                  const startingSlot = slotsHere.find(s => s.startTime === time)
-                  const slotSpan = startingSlot ? spanCells(startingSlot) : 0
-
-                  return (
-                    <div
-                      key={date}
-                      className={`border-l h-[16px]
-                        ${isTutor && slotsHere.length === 0 ? 'hover:bg-blue-50 cursor-crosshair' : ''}
-                        ${inHover ? 'bg-blue-200' : ''}
-                      `}
-                      onMouseEnter={() => handleCellMouseEnter(date, time)}
-                      onMouseDown={() => handleCellMouseDown(date, time)}
-                      onClick={() => handleStudentClick(date, time)}
-                    >
-                      {startingSlot && (
-                        <div
-                          className={`absolute px-1 text-xs rounded
-                            ${startingSlot.slotType === 'available'
-                              ? 'bg-green-100'
-                              : 'bg-red-100'}
-                          `}
-                          style={{ height: slotSpan * CELL_HEIGHT }}
-                        >
-                          {startingSlot.startTime}–{startingSlot.endTime}
+        {/* Tutor: This Week's Slots list */}
+        {isTutor && (
+          <div className="mt-10">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">📋 This Week's Slots</h2>
+            {visibleSlots.filter(s => s.slotType === 'available' || s.slotType === 'booked').length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 shadow-sm text-gray-400">
+                <div className="text-4xl mb-3">📭</div>
+                <p className="font-medium">No slots this week — drag on the calendar to add some!</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {visibleSlots
+                  .filter(s => s.slotType === 'available' || s.slotType === 'booked')
+                  .map(slot => (
+                    <div key={slot._id}
+                      className={`bg-white rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm border ${slot.slotType === 'booked' ? 'border-red-300' : 'border-gray-100'}`}>
+                      <div className="flex items-center gap-4">
+                        <div className="text-2xl">{slot.slotType === 'booked' ? '🔴' : '🟢'}</div>
+                        <div>
+                          <p className="font-semibold text-gray-800 text-sm">
+                            {slot.dayOfWeek} — {formatDisplay(slot.date)}
+                          </p>
+                          <p className="text-xs text-gray-500">{slot.startTime} – {slot.endTime}</p>
+                          {slot.slotType === 'booked' && slot.bookedBy && (
+                            <p className="text-xs text-orange-500 font-medium">
+                              Booked by: {slot.bookedBy.name} ({slot.bookedBy.email})
+                            </p>
+                          )}
                         </div>
+                      </div>
+                      {slot.slotType === 'available' && (
+                        <button onClick={() => handleDelete(slot._id)}
+                          className="bg-red-100 text-red-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-red-200 transition">
+                          Delete
+                        </button>
                       )}
                     </div>
-                  )
-                })}
+                  ))}
               </div>
-            ))}
-
+            )}
           </div>
-        </div>
+        )}
 
       </div>
     </div>
