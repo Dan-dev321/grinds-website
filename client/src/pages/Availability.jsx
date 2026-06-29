@@ -63,12 +63,11 @@ const Availability = () => {
   const nextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate() + 7); setWeekStart(d) }
 
   // ── Data state ───────────────────────────────────────────────
-  const [slots, setSlots]             = useState([])
-  const [myBookings, setMyBookings]   = useState([])
-  const [loading, setLoading]         = useState(true)
-  const [success, setSuccess]         = useState('')
-  const [error, setError]             = useState('')
-  const [copying, setCopying]         = useState(false)
+  const [slots, setSlots]           = useState([])
+  const [myBookings, setMyBookings] = useState([])
+  const [loading, setLoading]       = useState(true)
+  const [success, setSuccess]       = useState('')
+  const [error, setError]           = useState('')
 
   // ── Drag state (tutor) ──────────────────────────────────────
   const [selecting, setSelecting]     = useState(false)
@@ -80,24 +79,18 @@ const Availability = () => {
   const [hoverDate, setHoverDate]     = useState(null)
   const [hoverTime, setHoverTime]     = useState(null)
 
+  // ── Copy day state ───────────────────────────────────────────
+  const [copyFrom, setCopyFrom] = useState('')
+  const [copyTo, setCopyTo]     = useState('')
+  const [copying, setCopying]   = useState(false)
+
   const flashSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3500) }
   const flashError   = (msg) => { setError(msg);   setTimeout(() => setError(''), 3500) }
-
-  // ── Cleanup stale slots (>48hrs old) ─────────────────────────
-  const cleanupStaleSlots = async () => {
-    if (!isTutor) return
-    try {
-      await axios.delete(`${API}/api/availability/cleanup`, authHeader)
-    } catch (err) {
-      console.error('Stale slot cleanup failed:', err)
-    }
-  }
 
   // ── Fetch ────────────────────────────────────────────────────
   const fetchSlots = async () => {
     try {
       setLoading(true)
-      await cleanupStaleSlots()
       const res = await axios.get(
         `${API}/api/availability?weekStart=${formatDate(weekStart)}`
       )
@@ -164,7 +157,7 @@ const Availability = () => {
     }
   }
 
-  // ── Hover block (the single source of truth for the preview) ──
+  // ── Hover block (single source of truth for the preview) ──────
   const getHoverBlock = () => {
     if (!hoverDate || !hoverTime || !isStudentOrParent) return null
     return getStudentBlock(hoverDate, hoverTime)
@@ -249,7 +242,7 @@ const Availability = () => {
       await axios.put(`${API}/api/availability/${slotId}/unbook`, {}, authHeader)
       flashSuccess('Booking cancelled ✅')
       fetchSlots()
-      fetchMyBookings()
+      if (isStudentOrParent) fetchMyBookings()
     } catch (err) {
       flashError(err.response?.data?.message || 'Failed to cancel')
     }
@@ -267,32 +260,21 @@ const Availability = () => {
     }
   }
 
-  // ── Copy Week ─────────────────────────────────────────────────
-  const handleCopyWeek = async () => {
+  // ── Copy day ──────────────────────────────────────────────────
+  const handleCopyDay = async () => {
+    if (!copyFrom || !copyTo) return flashError('Please select both dates')
     try {
       setCopying(true)
-      const nextMonday = new Date(weekStart)
-      nextMonday.setDate(weekStart.getDate() + 7)
-
-      const results = await Promise.all(
-        Array.from({ length: 7 }, (_, i) => {
-          const fromDate = new Date(weekStart)
-          fromDate.setDate(weekStart.getDate() + i)
-          const toDate = new Date(nextMonday)
-          toDate.setDate(nextMonday.getDate() + i)
-          return axios.post(
-            `${API}/api/availability/copy-day`,
-            { fromDate: formatDate(fromDate), toDate: formatDate(toDate) },
-            authHeader
-          )
-        })
+      const res = await axios.post(
+        `${API}/api/availability/copy-day`,
+        { fromDate: copyFrom, toDate: copyTo },
+        authHeader
       )
-
-      const totalCopied = results.reduce((sum, r) => sum + (r.data.created ?? 0), 0)
-      flashSuccess(`Week copied to ${formatDisplay(formatDate(nextMonday))} ✅ (${totalCopied} slots)`)
+      flashSuccess(res.data.message)
+      setCopyFrom(''); setCopyTo('')
       fetchSlots()
     } catch (err) {
-      flashError(err.response?.data?.message || 'Failed to copy week')
+      flashError(err.response?.data?.message || 'Failed to copy')
     } finally {
       setCopying(false)
     }
@@ -354,25 +336,29 @@ const Availability = () => {
           </div>
         )}
 
-        {/* Tutor: Copy Week Panel */}
+        {/* Tutor: Copy Day Panel */}
         {isTutor && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4 flex items-center justify-between flex-wrap gap-3">
-            <div>
-              <h2 className="text-sm font-bold text-gray-800">📋 Copy This Week</h2>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Copies {formatDisplay(weekDates[0])} – {formatDisplay(weekDates[6])} → next week
-              </p>
-              <p className="text-xs text-gray-400">
-                ⚠️ Existing unbooked slots on next week will be replaced
-              </p>
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4">
+            <h2 className="text-sm font-bold text-gray-800 mb-3">📋 Copy Schedule</h2>
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Copy FROM</label>
+                <input type="date" value={copyFrom} onChange={e => setCopyFrom(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Copy TO</label>
+                <input type="date" value={copyTo} onChange={e => setCopyTo(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+              <button onClick={handleCopyDay} disabled={copying}
+                className="bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-blue-800 transition disabled:opacity-50">
+                {copying ? 'Copying...' : 'Copy Day →'}
+              </button>
             </div>
-            <button
-              onClick={handleCopyWeek}
-              disabled={copying}
-              className="bg-blue-700 text-white px-5 py-2 rounded-lg text-sm font-semibold hover:bg-blue-800 transition disabled:opacity-50"
-            >
-              {copying ? 'Copying...' : 'Copy Week →'}
-            </button>
+            <p className="text-xs text-gray-400 mt-2">
+              ⚠️ Unbooked slots on destination day will be replaced
+            </p>
           </div>
         )}
 
@@ -499,6 +485,12 @@ const Availability = () => {
                                     : 'Your booking'}
                                 </p>
                               )}
+                              {startingSlot.slotType === 'buffer' && (
+                                <p className="text-xs leading-tight opacity-60">buffer</p>
+                              )}
+                              {startingSlot.slotType === 'unavailable' && (
+                                <p className="text-xs leading-tight opacity-60">unavailable</p>
+                              )}
                             </div>
                             {isTutor && startingSlot.slotType === 'available' && slotSpan * CELL_HEIGHT >= 40 && (
                               <button
@@ -612,12 +604,20 @@ const Availability = () => {
                           )}
                         </div>
                       </div>
-                      {slot.slotType === 'available' && (
-                        <button onClick={() => handleDelete(slot._id)}
-                          className="bg-red-100 text-red-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-red-200 transition">
-                          Delete
-                        </button>
-                      )}
+                      <div className="flex gap-2">
+                        {slot.slotType === 'booked' && (
+                          <button onClick={() => handleUnbook(slot._id)}
+                            className="bg-orange-100 text-orange-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-orange-200 transition">
+                            Unbook
+                          </button>
+                        )}
+                        {slot.slotType === 'available' && (
+                          <button onClick={() => handleDelete(slot._id)}
+                            className="bg-red-100 text-red-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-red-200 transition">
+                            Delete
+                          </button>
+                        )}
+                      </div>
                     </div>
                   ))}
               </div>
