@@ -51,8 +51,10 @@ const Navbar = () => {
   ]
 
   const tutorLinks = [
-    { to: '/availability', label: 'Calendar'  },
-    { to: '/notebook',     label: '📓 Notebook' },
+    { to: '/dashboard/tutor', label: 'Dashboard' },
+    { to: '/students',        label: 'Students' },
+    { to: '/availability',    label: 'Calendar' },
+    { to: '/notebook',         label: 'Notes' },
   ]
 
   const ownerLinks = [

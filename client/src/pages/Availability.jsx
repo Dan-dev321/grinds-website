@@ -145,14 +145,22 @@ const Availability = () => {
     (toMins(slot.endTime) - toMins(slot.startTime)) / SLOT_MINS
 
   // ── Student: check 1hr block is all-available ────────────────
-  const getStudentBlock = (date, startTime) => {
-    const slotMins = toMins(startTime)
-    const endMins  = slotMins + 60
-    for (let m = slotMins; m < endMins; m += SLOT_MINS) {
-      const match = getSlotsAt(date, toTime(m)).find(s => s.slotType === 'available')
-      if (!match) return null
+  const getStudentBlock = (date, hoveredTime) => {
+    const startMins = toMins(hoveredTime)
+    const endMins = startMins + 60
+
+    // Make sure every 15-minute chunk for the next hour is available
+    for (let mins = startMins; mins < endMins; mins += SLOT_MINS) {
+      const available = getSlotsAt(date, toTime(mins))
+        .some(s => s.slotType === 'available')
+
+      if (!available) return null
     }
-    return { startTime: toTime(slotMins), endTime: toTime(endMins) }
+
+    return {
+      startTime: toTime(startMins),
+      endTime: toTime(endMins)
+    }
   }
 
   // ── Hover block ───────────────────────────────────────────────
@@ -212,7 +220,7 @@ const Availability = () => {
       flashError('Not enough consecutive time here for a 1-hour session')
       return
     }
-    const availableSlot = getSlotsAt(date, hoverBlock.startTime)
+    const availableSlot = getSlotsAt(date, time)
       .find(s => s.slotType === 'available')
 
     if (!availableSlot) {
@@ -223,7 +231,7 @@ const Availability = () => {
     try {
       await axios.post(`${API}/api/availability/book`, {
         date,
-        startTime: hoverBlock.startTime,
+        startTime: time,
         tutorId: availableSlot.tutor?._id?.toString() || availableSlot.tutor?.toString()
       }, authHeader)
       flashSuccess(`Booked: ${hoverBlock.startTime}–${hoverBlock.endTime} 🎉`)
