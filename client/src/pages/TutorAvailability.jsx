@@ -63,7 +63,8 @@ const loadSettings = () => {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 const TutorAvailability = () => {
-  const { token } = useAuth()
+  const { token, user } = useAuth()
+  const tutorId = user?._id || user?.id
   const authHeader = token ? { headers: { Authorization: `Bearer ${token}` } } : {}
 
   // ── Settings state (persisted) ─────────────────────────────────
@@ -128,7 +129,6 @@ const TutorAvailability = () => {
   const flashError   = (msg) => { setError(msg);   setTimeout(() => setError(''),   3500) }
 
   // ── Fetch ────────────────────────────────────────────────────
-  const { token, user } = useAuth()
   const tutorId = user?._id || user?.id
   // ...
 
