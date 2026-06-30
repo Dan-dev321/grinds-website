@@ -81,7 +81,7 @@ const addSlot = async (req, res) => {
 // ─── GET SLOTS BY WEEK ────────────────────────────────────────────────────────
 const getSlotsByWeek = async (req, res) => {
   try {
-    const { weekStart } = req.query
+    const { weekStart, tutorId } = req.query
     if (!weekStart)
       return res.status(400).json({ message: 'weekStart query param required' })
 
@@ -91,7 +91,13 @@ const getSlotsByWeek = async (req, res) => {
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
     })
 
-    const slots = await Availability.find({ date: { $in: dates } })
+    // tutorId is optional: students browsing all tutors can omit it,
+    // but the tutor's own calendar should always pass its own id so
+    // slots/bookings from other tutors never bleed into its view.
+    const query = { date: { $in: dates } }
+    if (tutorId) query.tutor = tutorId
+
+    const slots = await Availability.find(query)
       .populate('tutor', 'name email')
       .populate('bookedBy', 'name email')
       .sort({ date: 1, startTime: 1 })

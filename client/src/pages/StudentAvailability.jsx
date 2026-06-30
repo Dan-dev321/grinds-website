@@ -23,7 +23,18 @@ const timeSlots = Array.from({ length: TOTAL_SLOTS }, (_, i) => {
   return `${h}:${m}`
 })
 
-const SLOT_COLOUR = { bg: '#dbeafe', border: '#3b82f6', text: '#1d4ed8' } // blue
+const SLOT_COLOUR = {
+  bg: '#dcfce7',
+  bgHover: '#86efac',
+  border: '#22c55e',
+  text: '#166534'
+}
+
+// Friendlier labels + colours for non-available slot types
+const STATUS_META = {
+  booked: { label: 'Slot Booked',        bg: '#fee2e2', border: '#f87171', text: '#b91c1c' },
+  buffer: { label: 'Tutor Unavailable',  bg: '#f1f5f9', border: '#cbd5e1', text: '#64748b' },
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const toMins  = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
@@ -307,6 +318,9 @@ const StudentAvailability = () => {
                     const slotsHere = getSlotsAt(date, time)
 
                     const availableHere = slotsHere.filter(s => s.slotType === 'available')
+                    // NEW
+                    const startingAvailable = availableHere.find(s => s.startTime === time)
+
                     const nonAvailHere = slotsHere.filter(s => s.slotType !== 'available')
                     const nonAvailStarting = nonAvailHere.filter(s => s.startTime === time)
 
@@ -334,46 +348,79 @@ const StudentAvailability = () => {
                           const isTopRow    = s.startTime === time
                           const lastRowTime = toTime(toMins(s.endTime) - SLOT_MINS)
                           const isBottomRow = lastRowTime === time
+                          const lessonMins = Number.isFinite(s.lessonLength) ? s.lessonLength : DEFAULT_LESSON_MINS
+                          const spanH = spanCells(s)
 
                           return (
                             <div
                               key={s._id}
                               className="absolute top-0 bottom-0 left-0 right-0"
                               style={{
-                                background: isHovered ? SLOT_COLOUR.border : SLOT_COLOUR.bg,
-                                opacity: isHovered ? 0.85 : 1,
+                                background: isHovered ? SLOT_COLOUR.bgHover : SLOT_COLOUR.bg,
                                 borderLeft:   `1.5px solid ${SLOT_COLOUR.border}`,
                                 borderRight:  `1.5px solid ${SLOT_COLOUR.border}`,
                                 borderTop:    isTopRow    ? `1.5px solid ${SLOT_COLOUR.border}` : 'none',
                                 borderBottom: isBottomRow ? `1.5px solid ${SLOT_COLOUR.border}` : 'none',
                                 zIndex: 10,
+                                transition: 'background 120ms ease',
                               }}
-                            />
+                            >
+                              {isTopRow && (
+                                <div
+                                  className="absolute top-0 left-0 right-0 px-1 leading-tight overflow-hidden"
+                                  style={{ color: SLOT_COLOUR.text, height: `${spanH * CELL_HEIGHT}px` }}
+                                >
+                                  <p className="text-[10px] font-bold truncate">
+                                    {s.startTime}–{s.endTime}
+                                  </p>
+                                  {spanH * CELL_HEIGHT >= 28 && (
+                                    <p className="text-[10px] font-semibold opacity-80 truncate">
+                                      🎓 {lessonMins} min session
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                           )
                         })}
 
                         {/* Non-available (booked/buffer) — tall block, starts at startTime row only */}
                         {nonAvailStarting.map(s => {
-                          const spanH   = spanCells(s)
-                          const isBooked = s.slotType === 'booked'
+                          const spanH = spanCells(s)
+                          const meta  = STATUS_META[s.slotType] || STATUS_META.buffer
                           return (
                             <div
                               key={s._id}
                               className="absolute left-0.5 right-0.5 z-20 rounded border overflow-hidden px-1 py-0.5"
                               style={{
                                 height:      `${spanH * CELL_HEIGHT - 2}px`,
-                                background:  isBooked ? '#fee2e2' : '#f3f4f6',
-                                borderColor: isBooked ? '#ef4444' : '#d1d5db',
-                                color:       isBooked ? '#b91c1c' : '#9ca3af',
+                                background:  meta.bg,
+                                borderColor: meta.border,
+                                color:       meta.text,
                               }}
                             >
                               <p className="text-xs font-bold leading-tight">
                                 {s.startTime}–{s.endTime}
                               </p>
-                              <p className="text-xs leading-tight opacity-60">{s.slotType}</p>
+                              <p className="text-xs leading-tight opacity-70">{meta.label}</p>
                             </div>
                           )
                         })}
+
+                        {/* Hover tooltip: exact time range that will be booked */}
+                        {hoverBlock && date === hoverDate && time === hoverTime && (
+                          <div
+                            className="absolute left-1/2 z-30 px-2 py-1 rounded-lg shadow-md text-xs font-semibold whitespace-nowrap pointer-events-none"
+                            style={{
+                              top: '-2px',
+                              transform: 'translate(-50%, -100%)',
+                              background: SLOT_COLOUR.border,
+                              color: 'white',
+                            }}
+                          >
+                            {hoverBlock.startTime}–{hoverBlock.endTime} · {hoverBlock.lessonMins} min
+                          </div>
+                        )}
                       </div>
                     )
                   })}
@@ -388,15 +435,17 @@ const StudentAvailability = () => {
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded inline-block"
               style={{ background: SLOT_COLOUR.bg, border: `1px solid ${SLOT_COLOUR.border}` }} />
-            Available
+            Available — click to book
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-red-100 border border-red-300 inline-block" />
-            Booked
+            <span className="w-3 h-3 rounded inline-block"
+              style={{ background: STATUS_META.booked.bg, border: `1px solid ${STATUS_META.booked.border}` }} />
+            {STATUS_META.booked.label}
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-gray-100 border border-gray-300 inline-block" />
-            Buffer
+            <span className="w-3 h-3 rounded inline-block"
+              style={{ background: STATUS_META.buffer.bg, border: `1px solid ${STATUS_META.buffer.border}` }} />
+            {STATUS_META.buffer.label}
           </span>
         </div>
 

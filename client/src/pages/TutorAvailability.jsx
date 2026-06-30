@@ -128,11 +128,15 @@ const TutorAvailability = () => {
   const flashError   = (msg) => { setError(msg);   setTimeout(() => setError(''),   3500) }
 
   // ── Fetch ────────────────────────────────────────────────────
+  const { token, user } = useAuth()
+  const tutorId = user?._id || user?.id
+  // ...
+
   const fetchSlots = async () => {
     try {
       setLoading(true)
       const res = await axios.get(
-        `${API}/api/availability?weekStart=${formatDate(weekStart)}`
+        `${API}/api/availability?weekStart=${formatDate(weekStart)}&tutorId=${tutorId}`
       )
       setSlots(res.data)
     } catch (err) {
@@ -144,7 +148,7 @@ const TutorAvailability = () => {
 
   useEffect(() => {
     fetchSlots()
-  }, [weekStart])
+  }, [weekStart, tutorId])
 
   // ── Slot helpers ─────────────────────────────────────────────
   const getSlotsAt = (date, time) =>
@@ -435,6 +439,11 @@ const TutorAvailability = () => {
                               <p className="text-xs font-bold leading-tight">
                                 {startingSlot.startTime}–{startingSlot.endTime}
                               </p>
+                              {startingSlot.lessonLength && (
+                                <p className="text-xs font-semibold leading-tight opacity-90">
+                                    🎓 {startingSlot.lessonLength} min
+                                </p>
+                              )}
                               {startingSlot.slotType === 'booked' && startingSlot.bookedBy && (
                                 <p className="text-xs leading-tight truncate opacity-80">
                                   {startingSlot.bookedBy.name}

@@ -83,7 +83,7 @@ const Navbar = () => {
             onClick={() => setMenuOpen(false)}
           >
             <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform duration-150">
-              <span className="text-brand-600 font-black text-sm">TB</span>
+              <span className="text-brand-600 font-black text-sm">TN</span>
             </div>
             <span className="text-white font-extrabold text-lg tracking-tight">
               TutorNode
