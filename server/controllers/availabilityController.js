@@ -18,18 +18,39 @@ const getDayOfWeek = (dateStr) => {
   return days[new Date(year, month - 1, day).getDay()]
 }
 
+// Add N days to a 'YYYY-MM-DD' string, returns 'YYYY-MM-DD'
+const addDaysToDateStr = (dateStr, days) => {
+  const [y, mo, d] = dateStr.split('-').map(Number)
+  const dt = new Date(y, mo - 1, d + days)
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`
+}
+
+const dateStrToObj = (dateStr) => {
+  const [y, mo, d] = dateStr.split('-').map(Number)
+  return new Date(y, mo - 1, d)
+}
+
 // ─── ADD SLOT (Tutor/Admin) ───────────────────────────────────────────────────
 const addSlot = async (req, res) => {
-  const { date, startTime, endTime } = req.body
+  const { date, startTime, endTime, lessonLength, bufferMinutes } = req.body
   try {
     if (!date || !startTime || !endTime)
       return res.status(400).json({ message: 'Date, start time and end time are required' })
     if (startTime >= endTime)
       return res.status(400).json({ message: 'End time must be after start time' })
 
+    // Default to 60 min lessons / 0 min buffer if not supplied (back-compat)
+    const lessonMins = Number.isFinite(lessonLength) ? lessonLength : 60
+    const bufferMins  = Number.isFinite(bufferMinutes) ? bufferMinutes : 0
+
+    if (lessonMins < 15 || lessonMins % 15 !== 0)
+      return res.status(400).json({ message: 'Lesson length must be a multiple of 15 minutes' })
+    if (bufferMins < 0 || bufferMins % 15 !== 0)
+      return res.status(400).json({ message: 'Buffer must be a multiple of 15 minutes' })
+
     const durationMins = toMins(endTime) - toMins(startTime)
-    if (durationMins < 60)
-      return res.status(400).json({ message: 'Minimum slot length is 1 hour' })
+    if (durationMins < lessonMins)
+      return res.status(400).json({ message: `Minimum slot length is ${lessonMins} minutes` })
 
     const dayOfWeek = getDayOfWeek(date)
 
@@ -47,6 +68,8 @@ const addSlot = async (req, res) => {
       startTime,
       endTime,
       slotType: 'available',
+      lessonLength: lessonMins,
+      bufferMinutes: bufferMins,
       isBooked: false
     })
     res.status(201).json(slot)
@@ -150,19 +173,45 @@ const cleanupStaleSlots = async (req, res) => {
 }
 
 // ─── BOOK A SLOT (Student/Parent) ────────────────────────────────────────────
+// Booking duration and buffer size now come from the available slot being
+// booked (slot.lessonLength / slot.bufferMinutes), not hardcoded 60/15.
 const bookSlot = async (req, res) => {
   try {
     const { startTime, date, tutorId } = req.body
     if (!startTime || !date || !tutorId)
       return res.status(400).json({ message: 'startTime, date and tutorId are required' })
 
+    // ── Find the available slot that covers this start time ───────
+    const parentSlot = await Availability.findOne({
+      date,
+      tutor: tutorId,
+      slotType: 'available',
+      startTime: { $lte: startTime },
+      endTime:   { $gt: startTime }
+    })
+
+    if (!parentSlot)
+      return res.status(400).json({ message: 'No available slot covers this time' })
+
+    const lessonMins = Number.isFinite(parentSlot.lessonLength) ? parentSlot.lessonLength : 60
+    const bufferMins  = Number.isFinite(parentSlot.bufferMinutes) ? parentSlot.bufferMinutes : 0
+
+    const bookStart   = toMins(startTime)
+    const bookEnd     = bookStart + lessonMins
+    const bookEndTime = toTime(bookEnd)
+
+    const parentStart = toMins(parentSlot.startTime)
+    const parentEnd   = toMins(parentSlot.endTime)
+
+    if (bookEnd > parentEnd)
+      return res.status(400).json({ message: 'Not enough time left in this slot for a full lesson' })
+
     // ── Prevent student booking same time twice ───────────────
-    const bookEndTime_check = toTime(toMins(startTime) + 60)
     const existingBooking = await Availability.findOne({
       bookedBy: req.user.id,
       date,
       slotType: 'booked',
-      startTime: { $lt: bookEndTime_check },
+      startTime: { $lt: bookEndTime },
       endTime:   { $gt: startTime }
     })
     if (existingBooking) {
@@ -172,23 +221,6 @@ const bookSlot = async (req, res) => {
     }
     // ─────────────────────────────────────────────────────────
 
-    const bookStart   = toMins(startTime)
-    const bookEnd     = bookStart + 60
-    const bookEndTime = toTime(bookEnd)
-
-    const parentSlot = await Availability.findOne({
-      date,
-      tutor: tutorId,
-      slotType: 'available',
-      startTime: { $lte: startTime },
-      endTime:   { $gte: bookEndTime }
-    })
-
-    if (!parentSlot)
-      return res.status(400).json({ message: 'No available slot covers this time' })
-
-    const parentStart = toMins(parentSlot.startTime)
-    const parentEnd   = toMins(parentSlot.endTime)
     const tutorIdRef  = parentSlot.tutor
     const dayOfWeek   = parentSlot.dayOfWeek
     const origId      = parentSlot._id
@@ -197,28 +229,32 @@ const bookSlot = async (req, res) => {
 
     const newDocs = []
 
-    // ── Segment BEFORE ───────────────────────────────────────────
-    if (bookStart - 15 > parentStart) {
+    // ── Segment BEFORE (anything ahead of the buffer zone) ────────
+    if (bookStart - bufferMins > parentStart) {
       const beforeStart    = parentStart
-      const beforeEnd      = bookStart - 15
+      const beforeEnd      = bookStart - bufferMins
       const beforeDuration = beforeEnd - beforeStart
       newDocs.push({
         tutor: tutorIdRef, date, dayOfWeek,
         startTime: toTime(beforeStart),
         endTime:   toTime(beforeEnd),
-        slotType:  beforeDuration >= 60 ? 'available' : 'unavailable',
+        slotType:  beforeDuration >= lessonMins ? 'available' : 'unavailable',
+        lessonLength: lessonMins,
+        bufferMinutes: bufferMins,
         parentSlotId: origId,
         isBooked: false
       })
     }
 
     // ── Buffer BEFORE ────────────────────────────────────────────
-    if (bookStart - 15 >= parentStart) {
+    if (bufferMins > 0 && bookStart - bufferMins >= parentStart) {
       newDocs.push({
         tutor: tutorIdRef, date, dayOfWeek,
-        startTime: toTime(Math.max(parentStart, bookStart - 15)),
+        startTime: toTime(Math.max(parentStart, bookStart - bufferMins)),
         endTime:   toTime(bookStart),
         slotType:  'buffer',
+        lessonLength: lessonMins,
+        bufferMinutes: bufferMins,
         parentSlotId: origId,
         isBooked: false
       })
@@ -230,33 +266,39 @@ const bookSlot = async (req, res) => {
       startTime: toTime(bookStart),
       endTime:   toTime(bookEnd),
       slotType:  'booked',
+      lessonLength: lessonMins,
+      bufferMinutes: bufferMins,
       parentSlotId: origId,
       isBooked: true,
       bookedBy: req.user.id
     })
 
     // ── Buffer AFTER ─────────────────────────────────────────────
-    if (bookEnd + 15 <= parentEnd) {
+    if (bufferMins > 0 && bookEnd + bufferMins <= parentEnd) {
       newDocs.push({
         tutor: tutorIdRef, date, dayOfWeek,
         startTime: toTime(bookEnd),
-        endTime:   toTime(Math.min(parentEnd, bookEnd + 15)),
+        endTime:   toTime(Math.min(parentEnd, bookEnd + bufferMins)),
         slotType:  'buffer',
+        lessonLength: lessonMins,
+        bufferMinutes: bufferMins,
         parentSlotId: origId,
         isBooked: false
       })
     }
 
     // ── Segment AFTER ────────────────────────────────────────────
-    if (bookEnd + 15 < parentEnd) {
-      const afterStart    = bookEnd + 15
+    if (bookEnd + bufferMins < parentEnd) {
+      const afterStart    = bookEnd + bufferMins
       const afterEnd      = parentEnd
       const afterDuration = afterEnd - afterStart
       newDocs.push({
         tutor: tutorIdRef, date, dayOfWeek,
         startTime: toTime(afterStart),
         endTime:   toTime(afterEnd),
-        slotType:  afterDuration >= 60 ? 'available' : 'unavailable',
+        slotType:  afterDuration >= lessonMins ? 'available' : 'unavailable',
+        lessonLength: lessonMins,
+        bufferMinutes: bufferMins,
         parentSlotId: origId,
         isBooked: false
       })
@@ -288,7 +330,7 @@ const unbookSlot = async (req, res) => {
         return res.status(403).json({ message: 'You can only cancel your own bookings' })
     }
 
-    const { date, parentSlotId, tutor, dayOfWeek } = bookedSlot
+    const { date, parentSlotId, tutor, dayOfWeek, lessonLength, bufferMinutes } = bookedSlot
 
     // ── Step 1: gather siblings (buffer slots) sharing the same parentSlotId ──
     const siblings = parentSlotId
@@ -341,6 +383,8 @@ const unbookSlot = async (req, res) => {
     merged.push(current)
 
     // ── Step 6: replace existing available slots with merged result ──
+    // Re-uses the lessonLength/bufferMinutes that were on the booking, so the
+    // freed range keeps the same settings it was created with.
     await Availability.deleteMany({ tutor, date, slotType: 'available' })
     await Availability.insertMany(
       merged.map(m => ({
@@ -350,6 +394,8 @@ const unbookSlot = async (req, res) => {
         startTime:    m.startTime,
         endTime:      m.endTime,
         slotType:     'available',
+        lessonLength: Number.isFinite(lessonLength) ? lessonLength : 60,
+        bufferMinutes: Number.isFinite(bufferMinutes) ? bufferMinutes : 0,
         parentSlotId: null,
         isBooked:     false
       }))
@@ -411,6 +457,8 @@ const copyDay = async (req, res) => {
           startTime:    slot.startTime,
           endTime:      slot.endTime,
           slotType:     'available',
+          lessonLength: slot.lessonLength,
+          bufferMinutes: slot.bufferMinutes,
           parentSlotId: null,
           isBooked:     false
         })
@@ -421,6 +469,105 @@ const copyDay = async (req, res) => {
       message: `Copied ${newSlots.length} slot(s) from ${fromDate} to ${toDate} ✅`,
       slots: newSlots
     })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message })
+  }
+}
+
+// ─── REPEAT WEEKLY TEMPLATE (Tutor/Admin) ─────────────────────────────────────
+// Clones this week's 'available' slots onto every following week, up to and
+// including untilDate. weekStart is the Monday of the source week.
+const repeatWeekly = async (req, res) => {
+  const { weekStart, untilDate } = req.body
+  try {
+    if (!weekStart || !untilDate)
+      return res.status(400).json({ message: 'weekStart and untilDate are required' })
+
+    const untilObj = dateStrToObj(untilDate)
+    if (dateStrToObj(weekStart) > untilObj)
+      return res.status(400).json({ message: 'untilDate must be after weekStart' })
+
+    const sourceDates = Array.from({ length: 7 }, (_, i) => addDaysToDateStr(weekStart, i))
+
+    const sourceSlots = await Availability.find({
+      tutor: req.user.id,
+      date: { $in: sourceDates },
+      slotType: 'available'
+    })
+
+    if (sourceSlots.length === 0)
+      return res.status(404).json({ message: 'No available slots found in the source week' })
+
+    const slotsByDate = {}
+    sourceDates.forEach(d => { slotsByDate[d] = sourceSlots.filter(s => s.date === d) })
+
+    const created = []
+    let weekOffset = 7
+    const MAX_WEEKS = 104 // safety cap (~2 years)
+
+    while (weekOffset / 7 <= MAX_WEEKS) {
+      const targetWeekStart = addDaysToDateStr(weekStart, weekOffset)
+      if (dateStrToObj(targetWeekStart) > untilObj) break
+
+      for (let i = 0; i < 7; i++) {
+        const targetDate = addDaysToDateStr(targetWeekStart, i)
+        if (dateStrToObj(targetDate) > untilObj) continue
+
+        const daySlots = slotsByDate[sourceDates[i]]
+        if (!daySlots || daySlots.length === 0) continue
+
+        // Clear existing available/unavailable slots on the target date first
+        await Availability.deleteMany({
+          tutor: req.user.id,
+          date: targetDate,
+          slotType: { $in: ['available', 'unavailable'] }
+        })
+
+        const dayOfWeek = getDayOfWeek(targetDate)
+        for (const slot of daySlots) {
+          const doc = await Availability.create({
+            tutor: req.user.id,
+            date: targetDate,
+            dayOfWeek,
+            startTime:    slot.startTime,
+            endTime:      slot.endTime,
+            slotType:     'available',
+            lessonLength: slot.lessonLength,
+            bufferMinutes: slot.bufferMinutes,
+            parentSlotId: null,
+            isBooked:     false
+          })
+          created.push(doc)
+        }
+      }
+
+      weekOffset += 7
+    }
+
+    res.status(201).json({
+      message: `Repeated weekly schedule, creating ${created.length} slot(s) up to ${untilDate} ✅`,
+      slots: created
+    })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message })
+  }
+}
+
+// ─── CLEAR A DAY (Tutor/Admin) ────────────────────────────────────────────────
+// Deletes everything on a given date except booked slots.
+const clearDay = async (req, res) => {
+  const { date } = req.query
+  try {
+    if (!date)
+      return res.status(400).json({ message: 'date query param required' })
+
+    const result = await Availability.deleteMany({
+      tutor: req.user.id,
+      date,
+      slotType: { $ne: 'booked' }
+    })
+
+    res.json({ message: `Cleared ${result.deletedCount} slot(s) on ${date} ✅` })
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message })
   }
@@ -438,4 +585,6 @@ module.exports = {
   deleteSlot,
   copyDay,
   cleanupStaleSlots,
+  repeatWeekly,
+  clearDay,
 }

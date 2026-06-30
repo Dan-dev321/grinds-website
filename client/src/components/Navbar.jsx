@@ -47,13 +47,13 @@ const Navbar = () => {
   ]
 
   const studentLinks = [
-    { to: '/availability', label: 'Book a Session' },
+    { to: '/studentavailability', label: 'Book a Session' },
   ]
 
   const tutorLinks = [
     { to: '/dashboard/tutor', label: 'Dashboard' },
     { to: '/students',        label: 'Students' },
-    { to: '/availability',    label: 'Calendar' },
+    { to: '/tutoravailability',    label: 'Calendar' },
     { to: '/notebook',         label: 'Notes' },
   ]
 

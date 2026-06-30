@@ -207,7 +207,7 @@ const TutorDashboard = () => {
                 📓 Notebook
               </Link>
               <Link
-                to="/availability"
+                to="/tutoravailability"
                 className="flex items-center gap-2 bg-white text-brand-700 hover:bg-brand-50 text-sm font-bold px-4 py-2 rounded-xl transition-all duration-150 shadow-sm"
               >
                 📅 Calendar
@@ -317,7 +317,7 @@ const TutorDashboard = () => {
               )}
             </h2>
             <Link
-              to="/availability"
+              to="/tutoravailability"
               className="text-xs text-brand-600 hover:text-brand-700 font-semibold transition-colors"
             >
               Manage calendar →
@@ -335,7 +335,7 @@ const TutorDashboard = () => {
               <p className="font-medium text-sm">No upcoming sessions scheduled.</p>
               <p className="text-xs mt-1">Add availability so students can book.</p>
               <Link
-                to="/availability"
+                to="/tutoravailability"
                 className="inline-block mt-4 bg-brand-600 text-white px-5 py-2 rounded-xl text-xs font-bold hover:bg-brand-700 transition"
               >
                 Open Calendar →
@@ -467,7 +467,7 @@ const TutorDashboard = () => {
                 </span>
               </h2>
               <Link
-                to="/availability"
+                to="/tutoravailability"
                 className="text-xs text-brand-600 hover:text-brand-700 font-semibold transition-colors"
               >
                 Edit calendar →

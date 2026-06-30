@@ -10,7 +10,8 @@ import ProtectedRoute from './components/ProtectedRoute'
 
 // Pages
 import Home               from './pages/Home'
-import Availability       from './pages/Availability'
+import StudentAvailability       from './pages/StudentAvailability'
+import TutorAvailability       from './pages/TutorAvailability'
 import Login              from './pages/Login'
 import Register           from './pages/Register'
 import Notebook           from './pages/Notebook'
@@ -33,10 +34,29 @@ function App() {
 
               {/* ======= PUBLIC ROUTES ======= */}
               <Route path="/"        element={<Home />} />
-              <Route path="/availability" element={<Availability />} />
               <Route path="/login"       element={<Login />} />
               <Route path="/register"    element={<Register />} />
               <Route path="/pricing"     element={<Pricing />} />
+
+              {/* ======= TUTOR-AVAILABILITY ======= */}
+              <Route
+                path="/tutoravailability"
+                element={
+                  <ProtectedRoute allowedRoles={['tutor']}>
+                    <TutorAvailability />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ======= STUDENT-AVAILABILITY ======= */}
+              <Route
+                path="/studentavailability"
+                element={
+                  <ProtectedRoute allowedRoles={['student']}>
+                    <StudentAvailability />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* ======= POST-CHECKOUT ======= */}
               <Route

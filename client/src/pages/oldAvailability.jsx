@@ -677,4 +677,4 @@ const Availability = () => {
   )
 }
 
-export default Availability
+export default oldAvailability

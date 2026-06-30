@@ -21,6 +21,11 @@ const availabilitySchema = new mongoose.Schema({
     ref: 'Availability',
     default: null
   },
+  // ── Lesson length & buffer this slot was created with ──────────────────────
+  // Stored on 'available' slots so bookSlot/unbookSlot know how long a booking
+  // should be and how big a buffer to carve out, instead of hardcoding 60/15.
+  lessonLength:  { type: Number, default: 60 }, // minutes
+  bufferMinutes: { type: Number, default: 0 },  // minutes
   isBooked: { type: Boolean, default: false },
   bookedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', default: null }
 }, { timestamps: true })
