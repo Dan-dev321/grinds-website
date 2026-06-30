@@ -69,7 +69,7 @@ const Register = () => {
           <div className="w-12 h-12 bg-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
             <span className="text-white font-black text-lg">TB</span>
           </div>
-          <h1 className="text-2xl font-extrabold text-gray-900">TutorBase</h1>
+          <h1 className="text-2xl font-extrabold text-gray-900">TutorNode</h1>
           <p className="text-gray-400 mt-1 text-sm">
             {mode === 'tutor'
               ? 'Start your free 14-day trial'

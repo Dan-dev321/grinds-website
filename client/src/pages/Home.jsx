@@ -72,7 +72,7 @@ const testimonials = [
   {
     name: 'Sarah K.',
     role: 'Maths Tutor · Dublin',
-    quote: 'TutorBase replaced three different apps I was using. Scheduling, notes and student info — all in one place.',
+    quote: 'TutorNode replaced three different apps I was using. Scheduling, notes and student info — all in one place.',
     avatar: 'SK',
     color: 'bg-brand-500',
   },
@@ -141,7 +141,7 @@ const Home = () => {
           </h1>
 
           <p className="text-xl text-brand-100 mb-10 max-w-2xl mx-auto leading-relaxed">
-            TutorBase gives independent tutors everything they need —
+            TutorNode gives independent tutors everything they need —
             scheduling, student notes, profiles, and reminders —
             in a single clean workspace.
           </p>
@@ -367,7 +367,7 @@ const Home = () => {
             Ready to simplify your tutoring business?
           </h2>
           <p className="text-brand-100 mb-8 text-lg">
-            Join TutorBase today. 14 days free — no credit card required.
+            Join TutorNode today. 14 days free — no credit card required.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link

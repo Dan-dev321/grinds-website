@@ -86,7 +86,7 @@ const Navbar = () => {
               <span className="text-brand-600 font-black text-sm">TB</span>
             </div>
             <span className="text-white font-extrabold text-lg tracking-tight">
-              TutorBase
+              TutorNode
             </span>
           </Link>
 

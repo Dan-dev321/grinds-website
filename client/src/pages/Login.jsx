@@ -62,7 +62,7 @@ const Login = () => {
             <span className="text-white font-black text-lg">TB</span>
           </div>
           <h1 className="text-2xl font-extrabold text-gray-900">Welcome back</h1>
-          <p className="text-gray-400 text-sm mt-1">Log in to your TutorBase account</p>
+          <p className="text-gray-400 text-sm mt-1">Log in to your TutorNode account</p>
         </div>
 
         {/* Error */}

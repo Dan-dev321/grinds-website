@@ -2,7 +2,7 @@ const Footer = () => {
   return (
     <footer className="bg-brand-600 text-white text-center py-5 text-sm mt-auto">
       <p className="font-medium">
-        © {new Date().getFullYear()} TutorBase · Online Management for Tutors
+        © {new Date().getFullYear()} TutorNode · Online Management for Tutors
       </p>
       <p className="text-brand-300 text-xs mt-1">
         Ireland 🇮🇪

@@ -95,7 +95,7 @@ const SubscriptionSuccess = () => {
           You're all set!
         </h1>
         <p className="text-gray-500 text-sm leading-relaxed mb-8">
-          Your TutorBase subscription is now active.
+          Your TutorNode subscription is now active.
           Head to your dashboard to get started.
         </p>
 

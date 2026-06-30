@@ -59,10 +59,10 @@ app.use('/api/sessions',     sessionRoutes)
 // ========================
 // HEALTH CHECK
 // ========================
-app.get('/', (req, res) => res.send('TutorBase server running ✅'))
+app.get('/', (req, res) => res.send('TutorNode server running ✅'))
 
 // ========================
-// DATABASE
+// DATANode
 // ========================
 mongoose.connect(process.env.MONGO_URI, { family: 4 })
   .then(() => console.log('MongoDB Connected ✅'))
