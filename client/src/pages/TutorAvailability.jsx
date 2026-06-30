@@ -129,9 +129,6 @@ const TutorAvailability = () => {
   const flashError   = (msg) => { setError(msg);   setTimeout(() => setError(''),   3500) }
 
   // ── Fetch ────────────────────────────────────────────────────
-  const tutorId = user?._id || user?.id
-  // ...
-
   const fetchSlots = async () => {
     try {
       setLoading(true)
