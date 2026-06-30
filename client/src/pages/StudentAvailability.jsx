@@ -5,11 +5,16 @@ import { useAuth } from '../context/AuthContext'
 
 const API = import.meta.env.VITE_API_URL
 // ─── Constants ────────────────────────────────────────────────────────────────
+// NOTE: working hours here are not yet synced with the tutor's Settings
+// sidebar (that lives in the tutor's own localStorage). If working hours
+// need to match across both pages, that setting should move server-side
+// (e.g. onto the Tutor model) so both pages can read the same source.
 const HOUR_START  = 8
 const HOUR_END    = 22
 const SLOT_MINS   = 15
 const TOTAL_SLOTS = ((HOUR_END - HOUR_START) * 60) / SLOT_MINS
 const CELL_HEIGHT = 16
+const DEFAULT_LESSON_MINS = 60 // fallback for legacy slots with no lessonLength stored
 
 const timeSlots = Array.from({ length: TOTAL_SLOTS }, (_, i) => {
   const totalMins = HOUR_START * 60 + i * SLOT_MINS
@@ -108,16 +113,20 @@ const StudentAvailability = () => {
   const spanCells = (slot) =>
     (toMins(slot.endTime) - toMins(slot.startTime)) / SLOT_MINS
 
-  // ── Check 1hr block is all-available ──────────────────────────
+  // ── Check there's enough room left in the available slot for a full lesson ──
+  // Each 'available' document is one continuous span, and now carries its own
+  // lessonLength (set by the tutor in Settings) instead of a hardcoded 60 min.
   const getStudentBlock = (date, startTime) => {
-    const slotMins = toMins(startTime)
-    const endMins  = slotMins + 60
-    for (let m = slotMins; m < endMins; m += SLOT_MINS) {
-      const cellSlots = getSlotsAt(date, toTime(m))
-      const match = cellSlots.find(s => s.slotType === 'available')
-      if (!match) return null
-    }
-    return { startTime: toTime(slotMins), endTime: toTime(endMins) }
+    const covering = getSlotsAt(date, startTime).find(s => s.slotType === 'available')
+    if (!covering) return null
+
+    const lessonMins = Number.isFinite(covering.lessonLength) ? covering.lessonLength : DEFAULT_LESSON_MINS
+    const startMins  = toMins(startTime)
+    const endMins    = startMins + lessonMins
+
+    if (endMins > toMins(covering.endTime)) return null
+
+    return { startTime: toTime(startMins), endTime: toTime(endMins), lessonMins }
   }
 
   // ── Hover block ───────────────────────────────────────────────
@@ -140,6 +149,8 @@ const StudentAvailability = () => {
     try {
       // Find the available slot covering this block to get its tutorId,
       // since the backend route still requires tutorId in the body.
+      // The backend determines the actual booking length from that slot's
+      // own lessonLength, so we don't need to send duration here.
       const matchingSlot = getSlotsAt(date, block.startTime)
         .find(s => s.slotType === 'available')
       const tutorId = matchingSlot?.tutor?._id?.toString() || matchingSlot?.tutor?.toString()
@@ -159,7 +170,9 @@ const StudentAvailability = () => {
   // ── Click to book ─────────────────────────────────────────────
   const handleStudentClick = async (date, time) => {
     if (!hoverBlock || hoverDate !== date) {
-      flashError('Not enough consecutive time here for a 1-hour session')
+      const fallbackSlot = getSlotsAt(date, time).find(s => s.slotType === 'available')
+      const lessonMins = Number.isFinite(fallbackSlot?.lessonLength) ? fallbackSlot.lessonLength : DEFAULT_LESSON_MINS
+      flashError(`Not enough consecutive time here for a ${lessonMins}-minute session`)
       return
     }
     await bookSlot(date, hoverBlock)
