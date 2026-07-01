@@ -1,5 +1,5 @@
 const mongoose = require('mongoose')
-const bcrypt = require('bcryptjs')
+const bcrypt   = require('bcryptjs')
 
 const studentSchema = new mongoose.Schema({
   tutorId:     { type: mongoose.Schema.Types.ObjectId, ref: 'Tutor', required: true },
@@ -20,10 +20,23 @@ const studentSchema = new mongoose.Schema({
   parentEmail: { type: String, default: '' },
   parentPhone: { type: String, default: '' },
 
+  // Progress tracking (set by tutor on /students page)
+  progressStage: {
+    type: String,
+    enum: [
+      'just-started',
+      'building-foundations',
+      'making-progress',
+      'on-track',
+      'exam-ready',
+      'completed',
+    ],
+    default: 'just-started',
+  },
+
   isActive: { type: Boolean, default: true },
 }, { timestamps: true })
 
-// ✅ Mongoose 7+ async pre-save — do NOT use next()
 studentSchema.pre('save', async function () {
   if (!this.isModified('password')) return
   this.password = await bcrypt.hash(this.password, 10)

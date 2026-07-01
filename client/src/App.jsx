@@ -12,6 +12,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 import Home               from './pages/Home'
 import StudentAvailability       from './pages/StudentAvailability'
 import TutorAvailability       from './pages/TutorAvailability'
+import Students           from './pages/Students'
 import Login              from './pages/Login'
 import Register           from './pages/Register'
 import Notebook           from './pages/Notebook'
@@ -94,6 +95,16 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['tutor']}>
                     <TutorDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ======= STUDENTS ======= */}
+              <Route
+                path="/students"
+                element={
+                  <ProtectedRoute allowedRoles={['tutor']}>
+                    <Students />
                   </ProtectedRoute>
                 }
               />
