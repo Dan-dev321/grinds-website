@@ -166,10 +166,55 @@ const updateStudentProgress = async (req, res) => {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PATCH /api/students/:id/profile  (tutor auth)
+// Updates editable profile fields — name and email are intentionally excluded
+// ─────────────────────────────────────────────────────────────────────────────
+const ALLOWED_PROFILE_FIELDS = [
+  'phone', 'school', 'yearGroup', 'subjects',
+  'examBoard', 'goals',
+  'parentName', 'parentEmail', 'parentPhone',
+]
+
+const updateStudentProfile = async (req, res) => {
+  try {
+    // Strip any fields not in the allow-list (name, email, password stay untouched)
+    const update = {}
+    for (const key of ALLOWED_PROFILE_FIELDS) {
+      if (req.body[key] !== undefined) update[key] = req.body[key]
+    }
+
+    const student = await Student.findOneAndUpdate(
+      { _id: req.params.id, tutorId: req.user._id },
+      update,
+      { new: true, select: '-password', runValidators: true }
+    )
+
+    if (!student) return res.status(404).json({ message: 'Student not found' })
+
+    res.json({
+      _id:         student._id,
+      phone:       student.phone,
+      school:      student.school,
+      yearGroup:   student.yearGroup,
+      subjects:    student.subjects,
+      examBoard:   student.examBoard,
+      goals:       student.goals,
+      parentName:  student.parentName,
+      parentEmail: student.parentEmail,
+      parentPhone: student.parentPhone,
+    })
+  } catch (err) {
+    console.error('updateStudentProfile error:', err)
+    res.status(500).json({ message: 'Server error' })
+  }
+}
+
 module.exports = {
   getMe,
   getMySessions,
   getTutorStudents,
   getStudentSessions,
   updateStudentProgress,
+  updateStudentProfile,
 }

@@ -9,6 +9,7 @@ const {
   getTutorStudents,
   getStudentSessions,
   updateStudentProgress,
+  updateStudentProfile,
 } = require('../controllers/studentController')
 
 // ── Student-facing ────────────────────────────────────────────────────────────
@@ -22,5 +23,6 @@ router.get('/me',   protect, studentOnly, getMe)
 router.get('/',                     protect, tutorOnly, getTutorStudents)
 router.get('/:id/sessions',         protect, tutorOnly, getStudentSessions)
 router.patch('/:id/progress',       protect, tutorOnly, updateStudentProgress)
+router.patch('/:id/profile',        protect, tutorOnly, updateStudentProfile)
 
 module.exports = router

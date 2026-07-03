@@ -125,6 +125,15 @@ const TutorAvailability = () => {
   const [clearDate, setClearDate] = useState('')
   const [clearing, setClearing]   = useState(false)
 
+  // ── Manual booking state ──────────────────────────────────────
+  const [manualOpen, setManualOpen]         = useState(false)
+  const [manualDate, setManualDate]         = useState('')
+  const [manualStart, setManualStart]       = useState('')
+  const [manualDuration, setManualDuration] = useState(lessonMins)
+  const [manualName, setManualName]         = useState('')
+  const [manualEmail, setManualEmail]       = useState('')
+  const [manualSaving, setManualSaving]     = useState(false)
+
   const flashSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3500) }
   const flashError   = (msg) => { setError(msg);   setTimeout(() => setError(''),   3500) }
 
@@ -286,6 +295,45 @@ const TutorAvailability = () => {
     }
   }
 
+  // ── Manual booking (student forgot to book via the calendar) ────
+  const resetManualForm = () => {
+    setManualDate(''); setManualStart(''); setManualDuration(lessonMins)
+    setManualName(''); setManualEmail('')
+  }
+
+  const handleManualBooking = async () => {
+    if (!manualDate || !manualStart || !manualName) {
+      return flashError('Please fill in date, start time, and student name')
+    }
+    try {
+      setManualSaving(true)
+      const endTime = addMins(manualStart, manualDuration)
+      // TODO backend: POST /api/availability/manual-booking
+      // body: { date, startTime, endTime, lessonLength, bookedBy: { name, email } }
+      // Should create a slot with slotType: 'booked' directly (skipping the
+      // normal available -> student-books flow). bookedBy is a plain
+      // {name, email} object rather than a linked student user ID, since the
+      // student never went through the booking flow themselves. Should also
+      // check for overlap with existing slots on that date/tutor and reject
+      // (409) if one is found, so the tutor doesn't double-book by accident.
+      const res = await axios.post(`${API}/api/availability/manual-booking`, {
+        date: manualDate,
+        startTime: manualStart,
+        endTime,
+        lessonLength: manualDuration,
+        bookedBy: { name: manualName, email: manualEmail },
+      }, authHeader)
+      flashSuccess(res.data?.message || `Booking added for ${manualName} ✅`)
+      resetManualForm()
+      setManualOpen(false)
+      fetchSlots()
+    } catch (err) {
+      flashError(err.response?.data?.message || 'Failed to add booking')
+    } finally {
+      setManualSaving(false)
+    }
+  }
+
   // ─────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────
@@ -304,12 +352,20 @@ const TutorAvailability = () => {
               Click and drag to create a slot (minimum {lessonMins} minutes)
             </p>
           </div>
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="absolute right-0 top-2 bg-white border border-gray-200 shadow-sm rounded-full px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition flex items-center gap-1.5"
-          >
-            ⚙️ Settings
-          </button>
+          <div className="absolute right-0 top-2 flex items-center gap-2">
+            <button
+              onClick={() => setManualOpen(true)}
+              className="bg-white border border-gray-200 shadow-sm rounded-full px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition flex items-center gap-1.5"
+            >
+              ➕ Add Booking
+            </button>
+            <button
+              onClick={() => setSettingsOpen(true)}
+              className="bg-white border border-gray-200 shadow-sm rounded-full px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition flex items-center gap-1.5"
+            >
+              ⚙️ Settings
+            </button>
+          </div>
         </div>
 
         {/* Flash messages */}
@@ -547,6 +603,78 @@ const TutorAvailability = () => {
         </div>
 
       </div>
+
+      {/* ── Manual Booking Modal ─────────────────────────────────── */}
+      {manualOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onMouseUp={(e) => e.stopPropagation()}>
+          <div
+            className="absolute inset-0 bg-black/30"
+            onClick={() => { setManualOpen(false); resetManualForm() }}
+          />
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl p-6">
+            <div className="flex items-center justify-between mb-1">
+              <h2 className="text-lg font-bold text-gray-800">➕ Add Booking Manually</h2>
+              <button
+                onClick={() => { setManualOpen(false); resetManualForm() }}
+                className="text-gray-400 hover:text-gray-700 text-xl leading-none px-1"
+              >
+                ✕
+              </button>
+            </div>
+            <p className="text-xs text-gray-400 mb-4">
+              Use this when a student booked outside the system (e.g. by text or in person) and needs to appear on your calendar.
+            </p>
+
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
+                <input type="date" value={manualDate} onChange={e => setManualDate(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Start time</label>
+                  <input type="time" value={manualStart} onChange={e => setManualStart(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">Duration</label>
+                  <select value={manualDuration} onChange={e => setManualDuration(Number(e.target.value))}
+                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    {LESSON_PRESETS.map(p => <option key={p} value={p}>{p} min</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Student name</label>
+                <input type="text" value={manualName} onChange={e => setManualName(e.target.value)}
+                  placeholder="e.g. Aoife Byrne"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Student email (optional)</label>
+                <input type="email" value={manualEmail} onChange={e => setManualEmail(e.target.value)}
+                  placeholder="student@example.com"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+
+              {manualStart && manualDate && (
+                <p className="text-xs text-gray-400">
+                  Will be added as {manualStart}–{addMins(manualStart, manualDuration)} on {formatDisplay(manualDate)}
+                </p>
+              )}
+
+              <button onClick={handleManualBooking} disabled={manualSaving}
+                className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-800 transition disabled:opacity-50 mt-1">
+                {manualSaving ? 'Adding...' : 'Add Booking'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Settings Sidebar ─────────────────────────────────────── */}
       {settingsOpen && (
