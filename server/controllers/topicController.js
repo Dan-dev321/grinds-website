@@ -49,11 +49,13 @@ const updateEntryTopics = async (req, res) => {
     if (!Array.isArray(topicsCovered))
       return res.status(400).json({ message: 'topicsCovered must be an array' })
 
+    // Filter out any malformed entries (missing topic id) defensively —
+    // protects against corrupted/legacy client state ever reaching a hard
+    // Mongoose validation crash instead of a clean, recoverable response.
+    const cleaned = topicsCovered.filter(t => t && t.topic)
+
     // Validate each rating is within range and a multiple of 0.5.
-    // Uses a small epsilon tolerance since floating point math (e.g. from
-    // Math.round(raw * 2) / 2 on the frontend) can produce values like
-    // 2.5000000000000004 that are logically 2.5 but fail a strict check.
-    for (const t of topicsCovered) {
+    for (const t of cleaned) {
       const doubled = t.rating * 2
       const isHalfStep = Math.abs(doubled - Math.round(doubled)) < 1e-9
       if (typeof t.rating !== 'number' || t.rating < 0 || t.rating > 5 || !isHalfStep) {
@@ -67,7 +69,7 @@ const updateEntryTopics = async (req, res) => {
     const entry = note.entries.id(entryId)
     if (!entry) return res.status(404).json({ message: 'Entry not found' })
 
-    entry.topicsCovered = topicsCovered
+    entry.topicsCovered = cleaned
     await note.save()
 
     // Return the entry populated with topic names, so the frontend doesn't

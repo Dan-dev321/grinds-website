@@ -355,13 +355,12 @@ const SessionEntry = ({ entry, studentId, token, onSaved, defaultExpanded }) => 
         </button>
       </div>
 
-      <TagEditor tags={tags} onChange={setTags} />
-
-      {/* Editor + Topics side-by-side — the topic panel is visually distinct
-          (own card, tinted background) so it reads as a separate module
-          rather than cramped into the same box as the note editor. */}
+      {/* Row starts at the tags/topics level — topic panel's top now aligns
+          with TagEditor instead of the toolbar, making it visually taller. */}
       <div className="flex flex-col lg:flex-row gap-6 mb-2 items-stretch">
-        <div className="lg:flex-1 lg:basis-2/5 min-w-0">
+        <div className="lg:grow lg:basis-3/5 min-w-0 flex flex-col">
+          <TagEditor tags={tags} onChange={setTags} />
+
           <Toolbar
             onBold={handleBold}
             onBullet={handleBullet}
@@ -378,7 +377,7 @@ const SessionEntry = ({ entry, studentId, token, onSaved, defaultExpanded }) => 
           />
         </div>
 
-        <div className="lg:flex-1 lg:basis-3/5 w-full shrink-0 bg-gray-50 rounded-2xl p-1 flex flex-col lg:min-w-[420px]">
+        <div className="lg:grow lg:basis-2/5 w-full shrink-0 bg-gray-50 rounded-2xl p-1 flex flex-col lg:min-w-[380px]">
           <TopicPanel
             studentId={studentId}
             entryId={entry._id}

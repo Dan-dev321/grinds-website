@@ -27,7 +27,8 @@ const StarDisplay = ({ rating }) => {
 }
 
 // ─── Click-to-rate scale: 0 on the left, 5 on the right, snaps to 0.5 steps ───
-const RatingScale = ({ value, onChange }) => {
+// ─── Single table-style row: name | 0 —slider— 5 | stars | number ────────────
+const TopicRow = ({ topic, rating, onChange, onRemove }) => {
   const trackRef = useRef(null)
 
   const handleClick = (e) => {
@@ -36,38 +37,51 @@ const RatingScale = ({ value, onChange }) => {
     const rect = track.getBoundingClientRect()
     const ratio = Math.min(Math.max((e.clientX - rect.left) / rect.width, 0), 1)
     const raw = ratio * 5
-    const snapped = Math.round(raw * 2) / 2 // snap to nearest 0.5
+    const snapped = Math.round(raw * 2) / 2
     onChange(snapped)
   }
 
   return (
-    <div className="flex flex-col gap-1.5 w-full">
-      {/* Slider row: 0 — track — 5 */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold text-gray-400 w-4 text-right shrink-0">0</span>
+    <div className="flex items-center gap-2 py-2 border-b border-gray-100 last:border-b-0">
+      <span
+        className="text-xs font-semibold text-gray-700 w-20 shrink-0 truncate"
+        title={topic.name}
+      >
+        {topic.name}
+      </span>
+
+      <span className="text-[10px] font-semibold text-gray-400 shrink-0">0</span>
+      <div
+        ref={trackRef}
+        onClick={handleClick}
+        className="relative flex-1 h-4 bg-gray-100 rounded-full cursor-pointer border border-gray-200 min-w-[60px]"
+        title="Click where you'd rate this student on this topic"
+      >
         <div
-          ref={trackRef}
-          onClick={handleClick}
-          className="relative flex-1 h-6 bg-gray-100 rounded-full cursor-pointer border border-gray-200"
-          title="Click where you'd rate this student on this topic"
-        >
-          <div
-            className="absolute top-0 left-0 h-full bg-amber-300 rounded-full transition-all"
-            style={{ width: `${(value / 5) * 100}%` }}
-          />
-          <div
-            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 bg-white border-2 border-amber-500 rounded-full shadow transition-all"
-            style={{ left: `${(value / 5) * 100}%` }}
-          />
-        </div>
-        <span className="text-xs font-semibold text-gray-400 w-4 shrink-0">5</span>
+          className="absolute top-0 left-0 h-full bg-amber-300 rounded-full transition-all"
+          style={{ width: `${(rating / 5) * 100}%` }}
+        />
+        <div
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 bg-white border-2 border-amber-500 rounded-full shadow transition-all"
+          style={{ left: `${(rating / 5) * 100}%` }}
+        />
       </div>
-      {/* Readout row: stars + numeric value, given their own line so they
-          never compete for space with the slider or the topic name. */}
-      <div className="flex items-center justify-end gap-2">
-        <StarDisplay rating={value} />
-        <span className="text-xs font-bold text-amber-600 w-8 text-right">{value.toFixed(1)}</span>
+      <span className="text-[10px] font-semibold text-gray-400 shrink-0">5</span>
+
+      <div className="shrink-0">
+        <StarDisplay rating={rating} />
       </div>
+      <span className="text-xs font-bold text-amber-600 w-7 text-right shrink-0">
+        {rating.toFixed(1)}
+      </span>
+
+      <button
+        onClick={onRemove}
+        className="text-xs text-gray-300 hover:text-red-400 transition shrink-0 ml-1"
+        title="Remove topic"
+      >
+        ✕
+      </button>
     </div>
   )
 }
@@ -163,7 +177,13 @@ const TopicPanel = ({ studentId, entryId, token, topicsCovered, onChange }) => {
   const persist = async (updated) => {
     try {
       setSaving(true)
-      const payload = updated.map(t => ({ topic: t.topic._id, rating: t.rating }))
+      // Defensive filter: drop any entry missing a valid topic._id, so a
+      // single corrupted/legacy item can't fail the whole save with a
+      // Mongoose validation error (Path `topic` is required).
+      const payload = updated
+        .filter(t => t.topic && t.topic._id)
+        .map(t => ({ topic: t.topic._id, rating: t.rating }))
+
       const res = await axios.put(
         `${API}/api/topics/student/${studentId}/entry/${entryId}`,
         { topicsCovered: payload },
@@ -171,7 +191,7 @@ const TopicPanel = ({ studentId, entryId, token, topicsCovered, onChange }) => {
       )
       onChange(res.data.entry.topicsCovered)
     } catch (err) {
-      console.error('Failed to save topic ratings')
+      console.error('Failed to save topic ratings:', err.response?.data || err.message)
     } finally {
       setSaving(false)
     }
@@ -216,26 +236,15 @@ const TopicPanel = ({ studentId, entryId, token, topicsCovered, onChange }) => {
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex-1 overflow-y-auto flex flex-col">
           {topicsCovered.map(({ topic, rating }) => (
-            <div key={topic._id} className="flex flex-col gap-1.5 pb-3 border-b border-gray-100 last:border-b-0 last:pb-0">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-gray-700 truncate" title={topic.name}>
-                  {topic.name}
-                </span>
-                <button
-                  onClick={() => handleRemoveTopic(topic._id)}
-                  className="text-xs text-gray-300 hover:text-red-400 transition shrink-0"
-                  title="Remove topic"
-                >
-                  ✕
-                </button>
-              </div>
-              <RatingScale
-                value={rating}
-                onChange={(newRating) => handleRatingChange(topic._id, newRating)}
-              />
-            </div>
+            <TopicRow
+              key={topic._id}
+              topic={topic}
+              rating={rating}
+              onChange={(newRating) => handleRatingChange(topic._id, newRating)}
+              onRemove={() => handleRemoveTopic(topic._id)}
+            />
           ))}
         </div>
       )}
