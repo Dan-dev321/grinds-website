@@ -42,10 +42,11 @@ app.use(express.json())
 // ========================
 const authRoutes         = require('./routes/authRoutes')
 const availabilityRoutes = require('./routes/availabilityRoutes')
-const ownerRoutes         = require('./routes/ownerRoutes')
+const ownerRoutes        = require('./routes/ownerRoutes')
 const noteRoutes         = require('./routes/noteRoutes')
 const studentRoutes      = require('./routes/studentRoutes')
 const sessionRoutes      = require('./routes/sessionRoutes')
+const cronRoutes         = require('./routes/cronRoutes')
 
 app.use('/api/auth',         authRoutes)
 app.use('/api/availability', availabilityRoutes)
@@ -53,8 +54,8 @@ app.use('/api/owner',        ownerRoutes)
 app.use('/api/notes',        noteRoutes)
 app.use('/api/students',     studentRoutes)
 app.use('/api/sessions',     sessionRoutes)
+app.use('/api/cron',         cronRoutes)
 
-// ✅ feedbackRoutes deliberately removed — Feedback is not part of TutorBase
 
 // ========================
 // HEALTH CHECK

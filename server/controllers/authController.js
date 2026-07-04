@@ -2,6 +2,11 @@ const Tutor   = require('../models/Tutor')
 const Student = require('../models/Student')
 const jwt     = require('jsonwebtoken')
 
+const { sendEmail } = require('../services/emailService')
+const { welcomeEmail } = require('../emails/templates/welcomeEmail')
+
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173'
+
 const generateToken = (id, role) =>
   jwt.sign({ id, role }, process.env.JWT_SECRET, { expiresIn: '7d' })
 
@@ -32,6 +37,18 @@ const registerTutor = async (req, res) => {
     } while (taken)
 
     await tutor.save()
+
+    // Fire welcome email (don't block registration if it fails)
+    const { subject, html } = welcomeEmail({
+      name: tutor.name,
+      role: 'tutor',
+      inviteCode: tutor.inviteCode,
+      trialEnds: tutor.subscription.trialEnds,
+      dashboardUrl: `${CLIENT_URL}/dashboard/tutor`,
+    })
+    sendEmail(tutor.email, subject, html).catch(err =>
+      console.error('Welcome email failed (tutor):', err)
+    )
 
     res.status(201).json({
       _id:        tutor._id,
@@ -65,6 +82,16 @@ const registerStudent = async (req, res) => {
       email,
       password,
     })
+
+    // Fire welcome email (don't block registration if it fails)
+    const { subject, html } = welcomeEmail({
+      name: student.name,
+      role: 'student',
+      dashboardUrl: `${CLIENT_URL}/dashboard/student`,
+    })
+    sendEmail(student.email, subject, html).catch(err =>
+      console.error('Welcome email failed (student):', err)
+    )
 
     res.status(201).json({
       _id:     student._id,

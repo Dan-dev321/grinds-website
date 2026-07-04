@@ -67,7 +67,7 @@ const Register = () => {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="w-12 h-12 bg-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
-            <span className="text-white font-black text-lg">TB</span>
+            <span className="text-white font-black text-lg">TN</span>
           </div>
           <h1 className="text-2xl font-extrabold text-gray-900">TutorNode</h1>
           <p className="text-gray-400 mt-1 text-sm">

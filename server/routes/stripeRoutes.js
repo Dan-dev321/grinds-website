@@ -4,6 +4,12 @@ const stripe = require('../config/stripe')
 const Tutor = require('../models/Tutor')
 const { protect } = require('../middleware/authMiddleware')
 
+const { sendEmail } = require('../services/emailService')
+const { paymentReceipt } = require('../emails/templates/paymentReceipt')
+const { paymentFailed } = require('../emails/templates/paymentFailed')
+
+
+
 // ─────────────────────────────────────────────
 // PRICE MAP
 // Maps plan name → your Stripe Price ID
@@ -200,6 +206,27 @@ router.post(
           break
         }
 
+        // ── Payment succeeded → send receipt ──
+        case 'invoice.payment_succeeded': {
+          const invoice = event.data.object
+          const tutor = await findTutor(invoice.customer)
+          if (!tutor) break
+
+          const { subject, html } = paymentReceipt({
+            name: tutor.name,
+            amount: invoice.amount_paid,
+            currency: invoice.currency,
+            plan: tutor.subscription.plan,
+            dashboardUrl: `${process.env.CLIENT_URL}/dashboard/tutor`,
+          })
+          sendEmail(tutor.email, subject, html).catch(err =>
+            console.error('Receipt email failed:', err)
+          )
+
+          console.log(`💰 Payment succeeded for tutor ${tutor.email}`)
+          break
+        }
+        
         // ── Payment failed → flag as past_due ──
         case 'invoice.payment_failed': {
           const invoice = event.data.object
@@ -208,6 +235,14 @@ router.post(
 
           tutor.subscription.status = 'past_due'
           await tutor.save()
+
+          const { subject, html } = paymentFailed({
+            name: tutor.name,
+            dashboardUrl: `${process.env.CLIENT_URL}/dashboard/tutor`,
+          })
+          sendEmail(tutor.email, subject, html).catch(err =>
+            console.error('Payment failed email failed to send:', err)
+          )
 
           console.log(`⚠️ Payment failed for tutor ${tutor.email}`)
           break

@@ -28,6 +28,7 @@ const availabilitySchema = new mongoose.Schema({
   bufferMinutes: { type: Number, default: 0 },  // minutes
   isBooked: { type: Boolean, default: false },
   bookedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', default: null },
+  reminderSent: { type: Boolean, default: false },
 
   // ── Manual/guest booking ─────────────────────────────────────────────────
   // Set when a tutor adds a booking directly (e.g. a student forgot to book

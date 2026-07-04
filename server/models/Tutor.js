@@ -15,6 +15,8 @@ const tutorSchema = new mongoose.Schema({
     stripeCustomerId:     { type: String },
     stripeSubscriptionId: { type: String },
     plan:                 { type: String, enum: ['monthly', 'quarterly', 'yearly', null], default: null },
+    trialReminderSent:     { type: Boolean, default: false },
+    trialExpiredEmailSent: { type: Boolean, default: false },
   },
 
   isActive: { type: Boolean, default: true },

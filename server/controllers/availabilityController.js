@@ -1,5 +1,10 @@
 const Availability = require('../models/Availability')
 
+const { sendEmail } = require('../services/emailService')
+const { bookingConfirmation } = require('../emails/templates/bookingConfirmation')
+
+const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173'
+
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 const toMins = (t) => {
   const [h, m] = t.split(':').map(Number)
@@ -362,6 +367,42 @@ const bookSlot = async (req, res) => {
 
     const created   = await Availability.insertMany(newDocs)
     const bookedDoc = created.find(d => d.slotType === 'booked')
+
+    // ── Fire confirmation emails (tutor + student) ────────────────
+    // Populate here since bookedDoc from insertMany only has raw ObjectId refs
+    const populatedBooking = await Availability.findById(bookedDoc._id)
+      .populate('tutor', 'name email')
+      .populate('bookedBy', 'name email')
+
+    if (populatedBooking?.tutor?.email) {
+      const { subject, html } = bookingConfirmation({
+        role: 'tutor',
+        recipientName: populatedBooking.tutor.name,
+        otherPartyName: populatedBooking.bookedBy?.name || 'A student',
+        date: populatedBooking.date,
+        startTime: populatedBooking.startTime,
+        endTime: populatedBooking.endTime,
+        dashboardUrl: `${CLIENT_URL}/dashboard/tutor`,
+      })
+      sendEmail(populatedBooking.tutor.email, subject, html).catch(err =>
+        console.error('Booking email failed (tutor):', err)
+      )
+    }
+
+    if (populatedBooking?.bookedBy?.email) {
+      const { subject, html } = bookingConfirmation({
+        role: 'student',
+        recipientName: populatedBooking.bookedBy.name,
+        otherPartyName: populatedBooking.tutor?.name || 'Your tutor',
+        date: populatedBooking.date,
+        startTime: populatedBooking.startTime,
+        endTime: populatedBooking.endTime,
+        dashboardUrl: `${CLIENT_URL}/dashboard/student`,
+      })
+      sendEmail(populatedBooking.bookedBy.email, subject, html).catch(err =>
+        console.error('Booking email failed (student):', err)
+      )
+    }
 
     res.status(201).json({
       message: 'Slot booked successfully! 🎉',
