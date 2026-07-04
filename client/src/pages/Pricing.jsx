@@ -9,14 +9,10 @@ const ALL_FEATURES = [
   'Email reminders',
   'Student profiles',
   'Invite link registration',
-  'Priority email support',
   'PDF session exports',
   'Attendance tracking',
   'Homework tracking',
   'Advanced analytics',
-  'Parent portal access',
-  'Early access to new features',
-  'Dedicated onboarding call',
 ]
 
 const PLANS = [
@@ -241,7 +237,7 @@ const Pricing = () => {
                   </span>
                   <p className={`text-sm leading-relaxed ${plan.highlight ? 'text-brand-100' : 'text-gray-600'}`}>
                     Includes <span className={`font-semibold ${plan.highlight ? 'text-white' : 'text-gray-900'}`}>every feature</span> —
-                    scheduling, notebook, exports, analytics, parent portal, and more.
+                    scheduling, notebook, exports, analytics and more.
                   </p>
                 </div>
 

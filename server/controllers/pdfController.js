@@ -1,4 +1,5 @@
-const puppeteer = require('puppeteer')
+const puppeteer = require('puppeteer-core')
+const chromium = require('@sparticuz/chromium')
 const Note = require('../models/Note')
 
 // ─── Shared styles for generated PDFs ─────────────────────────────────────────
@@ -108,10 +109,17 @@ const entryHTML = (entry) => `
   </div>
 `
 
+// ── Builds a PDF buffer from HTML using puppeteer-core + @sparticuz/chromium ──
+// This combo works on constrained hosts like Render's free tier, where
+// standard 'puppeteer' fails to install its bundled Chromium reliably.
+// Locally (dev), @sparticuz/chromium can still supply a compatible binary,
+// so this works the same in both environments without extra config.
 const buildPDFBuffer = async (html) => {
   const browser = await puppeteer.launch({
-    headless: 'new',
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: chromium.args,
+    defaultViewport: chromium.defaultViewport,
+    executablePath: await chromium.executablePath(),
+    headless: chromium.headless,
   })
   try {
     const page = await browser.newPage()
