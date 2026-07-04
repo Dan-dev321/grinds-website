@@ -361,7 +361,7 @@ const SessionEntry = ({ entry, studentId, token, onSaved, defaultExpanded }) => 
           (own card, tinted background) so it reads as a separate module
           rather than cramped into the same box as the note editor. */}
       <div className="flex flex-col lg:flex-row gap-6 mb-2 items-stretch">
-        <div className="flex-1 min-w-0">
+        <div className="lg:flex-1 lg:basis-1/2 min-w-0">
           <Toolbar
             onBold={handleBold}
             onBullet={handleBullet}
@@ -378,7 +378,7 @@ const SessionEntry = ({ entry, studentId, token, onSaved, defaultExpanded }) => 
           />
         </div>
 
-        <div className="lg:w-[28rem] w-full shrink-0 bg-gray-50 rounded-2xl p-1 flex flex-col">
+        <div className="lg:flex-1 w-full shrink-0 bg-gray-50 rounded-2xl p-1 flex flex-col lg:min-w-[420px]">
           <TopicPanel
             studentId={studentId}
             entryId={entry._id}
@@ -563,7 +563,7 @@ const Notebook = () => {
             <p className="text-sm mt-1">Mark a session as complete to create the first entry</p>
           </div>
         ) : (
-          <div className="max-w-5xl">
+          <div className="max-w-6xl">
             <div className="mb-6 flex items-start justify-between">
               <div>
                 <h1 className="text-2xl font-extrabold text-gray-800">
