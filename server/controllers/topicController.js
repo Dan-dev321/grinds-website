@@ -12,6 +12,7 @@ const getTopics = async (req, res) => {
     const topics = await Topic.find(query).sort({ name: 1 })
     res.json(topics)
   } catch (err) {
+    console.error('getTopics error:', err)
     res.status(500).json({ message: 'Server error', error: err.message })
   }
 }
@@ -31,6 +32,7 @@ const createTopic = async (req, res) => {
     const topic = await Topic.create({ tutor: req.user.id, name: trimmedName })
     res.status(201).json(topic)
   } catch (err) {
+    console.error('createTopic error:', err)
     res.status(500).json({ message: 'Server error', error: err.message })
   }
 }
@@ -47,9 +49,14 @@ const updateEntryTopics = async (req, res) => {
     if (!Array.isArray(topicsCovered))
       return res.status(400).json({ message: 'topicsCovered must be an array' })
 
-    // Validate each rating is within range and a multiple of 0.5
+    // Validate each rating is within range and a multiple of 0.5.
+    // Uses a small epsilon tolerance since floating point math (e.g. from
+    // Math.round(raw * 2) / 2 on the frontend) can produce values like
+    // 2.5000000000000004 that are logically 2.5 but fail a strict check.
     for (const t of topicsCovered) {
-      if (typeof t.rating !== 'number' || t.rating < 0 || t.rating > 5 || (t.rating * 2) % 1 !== 0) {
+      const doubled = t.rating * 2
+      const isHalfStep = Math.abs(doubled - Math.round(doubled)) < 1e-9
+      if (typeof t.rating !== 'number' || t.rating < 0 || t.rating > 5 || !isHalfStep) {
         return res.status(400).json({ message: 'Each rating must be 0-5 in 0.5 increments' })
       }
     }
@@ -70,6 +77,7 @@ const updateEntryTopics = async (req, res) => {
 
     res.json({ message: 'Topics updated ✅', entry: populatedEntry })
   } catch (err) {
+    console.error('updateEntryTopics error:', err)
     res.status(500).json({ message: 'Server error', error: err.message })
   }
 }
