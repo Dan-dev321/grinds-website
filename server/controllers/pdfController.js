@@ -180,8 +180,9 @@ const exportStudentPDF = async (req, res) => {
     const safeName = note.student.name.replace(/[^a-z0-9]/gi, '_')
     sendPDF(res, buffer, `${safeName}_session_notes.pdf`)
   } catch (err) {
+    console.error('exportStudentPDF error:', err)
     res.status(500).json({ message: 'Server error', error: err.message })
-  }
+    }
 }
 
 // ─── Export a single session entry ─────────────────────────────────────────────
@@ -221,8 +222,9 @@ const exportEntryPDF = async (req, res) => {
     const safeName = note.student.name.replace(/[^a-z0-9]/gi, '_')
     sendPDF(res, buffer, `${safeName}_${entry.date}.pdf`)
   } catch (err) {
+    console.error('exportEntryPDF error:', err)
     res.status(500).json({ message: 'Server error', error: err.message })
-  }
+    }
 }
 
 module.exports = {
