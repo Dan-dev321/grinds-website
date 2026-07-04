@@ -6,6 +6,8 @@ const sessionEntrySchema = new mongoose.Schema({
   startTime: { type: String, default: '' },
   endTime: { type: String, default: '' },
   content: { type: String, default: '' },
+  tags: { type: [String], default: [] },
+  pinned: { type: Boolean, default: false },
 }, { timestamps: true })
 
 const noteSchema = new mongoose.Schema({

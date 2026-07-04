@@ -51,7 +51,9 @@ const completeSession = async (req, res) => {
         dayOfWeek: getDayOfWeek(slot.date),
         startTime: slot.startTime,
         endTime:   slot.endTime,
-        content:   ''
+        content:   '',
+        tags:      [],
+        pinned:    false
       })
     }
 
@@ -92,10 +94,12 @@ const getStudentNotes = async (req, res) => {
 }
 
 // ─── Save/update notes for a specific entry ───────────────────────────────────
+// Accepts content, tags, and/or pinned — all optional, so callers can update
+// just one aspect (e.g. toggling pinned) without resending the others.
 const updateEntry = async (req, res) => {
   try {
     const { studentId, entryId } = req.params
-    const { content } = req.body
+    const { content, tags, pinned } = req.body
 
     const note = await Note.findOne({ tutor: req.user.id, student: studentId })
     if (!note) return res.status(404).json({ message: 'Notebook not found' })
@@ -103,7 +107,10 @@ const updateEntry = async (req, res) => {
     const entry = note.entries.id(entryId)
     if (!entry) return res.status(404).json({ message: 'Entry not found' })
 
-    entry.content = content
+    if (content !== undefined) entry.content = content
+    if (tags !== undefined) entry.tags = tags
+    if (pinned !== undefined) entry.pinned = pinned
+
     await note.save()
 
     res.json({ message: 'Notes saved ✅', entry })
