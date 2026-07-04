@@ -1,18 +1,31 @@
-const mongoose = require('mongoose')
+const express = require('express')
+const router  = express.Router()
 
-const sessionEntrySchema = new mongoose.Schema({
-  date: { type: String, required: true },
-  dayOfWeek: { type: String, required: true },
-  startTime: { type: String, default: '' },
-  endTime: { type: String, default: '' },
-  content: { type: String, default: '' },
-}, { timestamps: true })
+const { protect, tutorOnly } = require('../middleware/authMiddleware')
+const requireSubscription    = require('../middleware/requireSubscription')
 
-const noteSchema = new mongoose.Schema({
-  tutor: { type: mongoose.Schema.Types.ObjectId, ref: 'Tutor', required: true },
-  student: { type: mongoose.Schema.Types.ObjectId, ref: 'Student', required: true },
-  lastSessionDate: { type: String, default: '' }, // for sidebar ordering
-  entries: [sessionEntrySchema]
-}, { timestamps: true })
+const {
+  completeSession,
+  getNotebookStudents,
+  getStudentNotes,
+  updateEntry,
+} = require('../controllers/noteController')
 
-module.exports = mongoose.model('Note', noteSchema)
+const {
+  exportStudentPDF,
+  exportEntryPDF,
+} = require('../controllers/pdfController')
+
+// ── Read — always allowed ─────────────────────────────────────────────────────
+router.get('/students',                          protect, tutorOnly, getNotebookStudents)
+router.get('/student/:studentId',                protect, tutorOnly, getStudentNotes)
+
+// ── PDF export — read-only, always allowed ────────────────────────────────────
+router.get('/student/:studentId/export',                     protect, tutorOnly, exportStudentPDF)
+router.get('/student/:studentId/entry/:entryId/export',      protect, tutorOnly, exportEntryPDF)
+
+// ── Write — blocked if trial expired or cancelled ─────────────────────────────
+router.put('/complete/:id',                      protect, tutorOnly, requireSubscription, completeSession)
+router.put('/student/:studentId/entry/:entryId', protect, tutorOnly, requireSubscription, updateEntry)
+
+module.exports = router

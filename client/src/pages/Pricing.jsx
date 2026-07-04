@@ -2,6 +2,23 @@ import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
+const ALL_FEATURES = [
+  'Unlimited students',
+  'Smart scheduling calendar',
+  'Session notebook',
+  'Email reminders',
+  'Student profiles',
+  'Invite link registration',
+  'Priority email support',
+  'PDF session exports',
+  'Attendance tracking',
+  'Homework tracking',
+  'Advanced analytics',
+  'Parent portal access',
+  'Early access to new features',
+  'Dedicated onboarding call',
+]
+
 const PLANS = [
   {
     id: 'monthly',
@@ -12,14 +29,6 @@ const PLANS = [
     saving: null,
     badge: null,
     highlight: false,
-    features: [
-      'Unlimited students',
-      'Smart scheduling calendar',
-      'Session notebook',
-      'Email reminders',
-      'Student profiles',
-      'Invite link registration',
-    ],
   },
   {
     id: 'quarterly',
@@ -30,13 +39,6 @@ const PLANS = [
     saving: 'Save €12',
     badge: 'Popular',
     highlight: false,
-    features: [
-      'Everything in Monthly',
-      'Priority email support',
-      'PDF session exports',
-      'Attendance tracking',
-      'Homework tracking',
-    ],
   },
   {
     id: 'yearly',
@@ -47,13 +49,6 @@ const PLANS = [
     saving: 'Save €84',
     badge: 'Best value',
     highlight: true,
-    features: [
-      'Everything in Quarterly',
-      'Advanced analytics',
-      'Parent portal access',
-      'Early access to new features',
-      'Dedicated onboarding call',
-    ],
   },
 ]
 
@@ -65,6 +60,10 @@ const FAQ = [
   {
     q: 'What happens when my trial ends?',
     a: "You'll get an email reminder 3 days before it expires. After that, your account becomes read-only until you subscribe — we never delete your data.",
+  },
+  {
+    q: 'Do all plans really include everything?',
+    a: 'Yes. Every plan — Monthly, Quarterly, and Yearly — gives you the exact same full feature set. The only difference is how often you pay and how much you save.',
   },
   {
     q: 'Can I switch plans?',
@@ -154,11 +153,11 @@ const Pricing = () => {
           </div>
 
           <h1 className="text-4xl sm:text-5xl font-extrabold mb-4 leading-tight tracking-tight">
-            Simple, honest pricing
+            One plan. Every feature. Just pick your billing.
           </h1>
           <p className="text-brand-100 text-lg max-w-xl mx-auto leading-relaxed">
-            One product. One workspace. Pay monthly, quarterly, or yearly —
-            cancel anytime.
+            Every plan includes the full product — no feature gates, no upsells.
+            Pay monthly, quarterly, or yearly and save more the longer you commit.
           </p>
 
         </div>
@@ -219,6 +218,7 @@ const Pricing = () => {
                     {plan.saving}
                   </span>
                 )}
+                {!plan.saving && <div className="mb-4 h-[22px]" />}
 
                 {/* Price */}
                 <div className="flex items-end gap-1 mt-2 mb-6">
@@ -230,19 +230,20 @@ const Pricing = () => {
                   </span>
                 </div>
 
-                {/* Features */}
-                <ul className="flex flex-col gap-2.5 mb-8 flex-grow">
-                  {plan.features.map((feat, fi) => (
-                    <li key={fi} className="flex items-start gap-2 text-sm">
-                      <span className={`mt-0.5 flex-shrink-0 ${plan.highlight ? 'text-accent-300' : 'text-brand-500'}`}>
-                        ✓
-                      </span>
-                      <span className={plan.highlight ? 'text-brand-100' : 'text-gray-600'}>
-                        {feat}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                {/* Full-access callout instead of a feature list */}
+                <div
+                  className={`flex items-start gap-3 rounded-xl px-4 py-3 mb-8 flex-grow ${
+                    plan.highlight ? 'bg-brand-700/50' : 'bg-brand-50'
+                  }`}
+                >
+                  <span className={`mt-0.5 flex-shrink-0 text-lg ${plan.highlight ? 'text-accent-300' : 'text-brand-500'}`}>
+                    ✓
+                  </span>
+                  <p className={`text-sm leading-relaxed ${plan.highlight ? 'text-brand-100' : 'text-gray-600'}`}>
+                    Includes <span className={`font-semibold ${plan.highlight ? 'text-white' : 'text-gray-900'}`}>every feature</span> —
+                    scheduling, notebook, exports, analytics, parent portal, and more.
+                  </p>
+                </div>
 
                 {/* CTA */}
                 <button
@@ -266,71 +267,38 @@ const Pricing = () => {
           </div>
 
           <p className="text-center text-gray-400 text-xs mt-8">
-            All plans include a 14-day free trial · No credit card required · Cancel anytime
+            All plans include a 14-day free trial · Full feature access on every plan · Cancel anytime
           </p>
 
         </div>
       </section>
 
-      {/* ── FEATURE COMPARISON TABLE ─────────────────────────── */}
+      {/* ── EVERYTHING INCLUDED (replaces comparison table) ──── */}
       <section className="py-20 px-4 bg-white">
         <div className="max-w-4xl mx-auto">
 
           <div className="text-center mb-12">
             <span className="text-xs font-bold uppercase tracking-widest text-brand-500 mb-3 block">
-              Compare plans
+              No tiers, no gates
             </span>
-            <h2 className="text-3xl font-extrabold text-gray-900">
-              What's included
+            <h2 className="text-3xl font-extrabold text-gray-900 mb-3">
+              Everything, on every plan
             </h2>
+            <p className="text-gray-500 max-w-lg mx-auto">
+              Whether you pay monthly or yearly, you get the full product from day one.
+              Billing frequency only changes what you pay — never what you get.
+            </p>
           </div>
 
-          <div className="overflow-x-auto rounded-2xl border border-gray-100 shadow-sm">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-surface-100 border-b border-gray-100">
-                  <th className="text-left px-6 py-4 font-bold text-gray-900 w-1/2">Feature</th>
-                  <th className="text-center px-6 py-4 font-bold text-gray-900">Monthly</th>
-                  <th className="text-center px-6 py-4 font-bold text-gray-900">Quarterly</th>
-                  <th className="text-center px-6 py-4 font-bold text-brand-600">Yearly</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {[
-                  ['Unlimited students',         true,  true,  true],
-                  ['Smart scheduling calendar',  true,  true,  true],
-                  ['Session notebook',           true,  true,  true],
-                  ['Email reminders',            true,  true,  true],
-                  ['Student profiles',           true,  true,  true],
-                  ['Invite link registration',   true,  true,  true],
-                  ['Priority support',           false, true,  true],
-                  ['PDF session exports',        false, true,  true],
-                  ['Attendance tracking',        false, true,  true],
-                  ['Advanced analytics',         false, false, true],
-                  ['Parent portal access',       false, false, true],
-                  ['Onboarding call',            false, false, true],
-                ].map(([feature, monthly, quarterly, yearly], i) => (
-                  <tr key={i} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-3.5 text-gray-700 font-medium">{feature}</td>
-                    <td className="px-6 py-3.5 text-center">
-                      {monthly
-                        ? <span className="text-brand-500 font-bold text-base">✓</span>
-                        : <span className="text-gray-200 text-base">—</span>}
-                    </td>
-                    <td className="px-6 py-3.5 text-center">
-                      {quarterly
-                        ? <span className="text-brand-500 font-bold text-base">✓</span>
-                        : <span className="text-gray-200 text-base">—</span>}
-                    </td>
-                    <td className="px-6 py-3.5 text-center">
-                      {yearly
-                        ? <span className="text-brand-600 font-bold text-base">✓</span>
-                        : <span className="text-gray-200 text-base">—</span>}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 bg-surface-100 rounded-2xl border border-gray-100 p-8">
+            {ALL_FEATURES.map((feature, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-brand-500 text-white text-xs font-bold flex items-center justify-center">
+                  ✓
+                </span>
+                <span className="text-gray-700 text-sm font-medium">{feature}</span>
+              </div>
+            ))}
           </div>
 
         </div>

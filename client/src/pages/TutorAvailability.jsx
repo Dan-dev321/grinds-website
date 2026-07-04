@@ -38,6 +38,19 @@ const formatDisplay = (dateStr) => {
   return new Date(y, m-1, d).toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })
 }
 
+// Pulls a display name/email off a slot regardless of whether it's a real
+// student booking (bookedBy, populated) or a manual/guest booking
+// (manualStudentName / manualStudentEmail).
+const getBookingContact = (slot) => {
+  if (slot.isManualBooking) {
+    return { name: slot.manualStudentName, email: slot.manualStudentEmail, manual: true }
+  }
+  if (slot.bookedBy) {
+    return { name: slot.bookedBy.name, email: slot.bookedBy.email, manual: false }
+  }
+  return null
+}
+
 const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
 const loadSettings = () => {
@@ -189,8 +202,6 @@ const TutorAvailability = () => {
       return
     }
     try {
-      // NOTE: backend needs to read lessonMins/bufferMins to auto-insert a
-      // buffer slot after this one (if bufferMins > 0). TODO server-side.
       await axios.post(`${API}/api/availability`, {
         date: selectDate,
         startTime: selectStart,
@@ -234,7 +245,6 @@ const TutorAvailability = () => {
     if (!copyFrom || !copyTo) return flashError('Please select both dates')
     try {
       setCopying(true)
-      // TODO backend: POST /api/availability/copy-day { fromDate, toDate }
       const res = await axios.post(
         `${API}/api/availability/copy-day`,
         { fromDate: copyFrom, toDate: copyTo },
@@ -255,9 +265,6 @@ const TutorAvailability = () => {
     if (!recurUntil) return flashError('Please select an end date')
     try {
       setRecurring(true)
-      // TODO backend: POST /api/availability/recurring
-      // body: { weekStart: formatDate(weekStart), untilDate: recurUntil }
-      // Should repeat THIS week's available slots every week up to & including untilDate.
       const res = await axios.post(
         `${API}/api/availability/recurring`,
         { weekStart: formatDate(weekStart), untilDate: recurUntil },
@@ -279,8 +286,6 @@ const TutorAvailability = () => {
     if (!window.confirm(`Clear all unbooked slots on ${formatDisplay(clearDate)}?`)) return
     try {
       setClearing(true)
-      // TODO backend: DELETE /api/availability/clear-day?date=YYYY-MM-DD
-      // Should delete all slots on that date with slotType !== 'booked'.
       const res = await axios.delete(
         `${API}/api/availability/clear-day`,
         { ...authHeader, params: { date: clearDate } }
@@ -308,20 +313,13 @@ const TutorAvailability = () => {
     try {
       setManualSaving(true)
       const endTime = addMins(manualStart, manualDuration)
-      // TODO backend: POST /api/availability/manual-booking
-      // body: { date, startTime, endTime, lessonLength, bookedBy: { name, email } }
-      // Should create a slot with slotType: 'booked' directly (skipping the
-      // normal available -> student-books flow). bookedBy is a plain
-      // {name, email} object rather than a linked student user ID, since the
-      // student never went through the booking flow themselves. Should also
-      // check for overlap with existing slots on that date/tutor and reject
-      // (409) if one is found, so the tutor doesn't double-book by accident.
       const res = await axios.post(`${API}/api/availability/manual-booking`, {
         date: manualDate,
         startTime: manualStart,
         endTime,
         lessonLength: manualDuration,
-        bookedBy: { name: manualName, email: manualEmail },
+        studentName: manualName,
+        studentEmail: manualEmail,
       }, authHeader)
       flashSuccess(res.data?.message || `Booking added for ${manualName} ✅`)
       resetManualForm()
@@ -456,6 +454,7 @@ const TutorAvailability = () => {
                     // Single tall block anchored at startTime
                     const startingSlot = slotsHere.find(s => s.startTime === time)
                     const slotSpan = startingSlot ? spanCells(startingSlot) : 0
+                    const contact  = startingSlot ? getBookingContact(startingSlot) : null
 
                     return (
                       <div
@@ -497,9 +496,9 @@ const TutorAvailability = () => {
                                     🎓 {startingSlot.lessonLength} min
                                 </p>
                               )}
-                              {startingSlot.slotType === 'booked' && startingSlot.bookedBy && (
+                              {startingSlot.slotType === 'booked' && contact && (
                                 <p className="text-xs leading-tight truncate opacity-80">
-                                  {startingSlot.bookedBy.name}
+                                  {contact.name}{startingSlot.isManualBooking ? ' (manual)' : ''}
                                 </p>
                               )}
                               {startingSlot.slotType === 'buffer' && (
@@ -562,42 +561,49 @@ const TutorAvailability = () => {
             <div className="flex flex-col gap-3">
               {slots
                 .filter(s => s.slotType === 'available' || s.slotType === 'booked')
-                .map(slot => (
-                  <div key={slot._id}
-                    className="bg-white rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm"
-                    style={{
-                      border: `1px solid ${slot.slotType === 'booked' ? '#ef4444' : SLOT_COLOUR.border}`
-                    }}>
-                    <div className="flex items-center gap-4">
-                      <div className="text-2xl">{slot.slotType === 'booked' ? '🔴' : '🟢'}</div>
-                      <div>
-                        <p className="font-semibold text-gray-800 text-sm">
-                          {slot.dayOfWeek} — {formatDisplay(slot.date)}
-                        </p>
-                        <p className="text-xs text-gray-500">{slot.startTime} – {slot.endTime}</p>
-                        {slot.slotType === 'booked' && slot.bookedBy && (
-                          <p className="text-xs text-orange-500 font-medium">
-                            Booked by: {slot.bookedBy.name} ({slot.bookedBy.email})
+                .map(slot => {
+                  const contact = getBookingContact(slot)
+                  return (
+                    <div key={slot._id}
+                      className="bg-white rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm"
+                      style={{
+                        border: `1px solid ${slot.slotType === 'booked' ? '#ef4444' : SLOT_COLOUR.border}`
+                      }}>
+                      <div className="flex items-center gap-4">
+                        <div className="text-2xl">{slot.slotType === 'booked' ? '🔴' : '🟢'}</div>
+                        <div>
+                          <p className="font-semibold text-gray-800 text-sm">
+                            {slot.dayOfWeek} — {formatDisplay(slot.date)}
                           </p>
+                          <p className="text-xs text-gray-500">{slot.startTime} – {slot.endTime}</p>
+                          {slot.slotType === 'booked' && contact && (
+                            <p className="text-xs text-orange-500 font-medium">
+                              Booked by: {contact.name}
+                              {contact.email && ` (${contact.email})`}
+                              {slot.isManualBooking && (
+                                <span className="ml-1.5 text-gray-400 font-normal italic">— added manually</span>
+                              )}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        {slot.slotType === 'booked' && (
+                          <button onClick={() => handleUnbook(slot._id)}
+                            className="bg-orange-100 text-orange-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-orange-200 transition">
+                            Unbook
+                          </button>
+                        )}
+                        {slot.slotType === 'available' && (
+                          <button onClick={() => handleDelete(slot._id)}
+                            className="bg-red-100 text-red-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-red-200 transition">
+                            Delete
+                          </button>
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      {slot.slotType === 'booked' && (
-                        <button onClick={() => handleUnbook(slot._id)}
-                          className="bg-orange-100 text-orange-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-orange-200 transition">
-                          Unbook
-                        </button>
-                      )}
-                      {slot.slotType === 'available' && (
-                        <button onClick={() => handleDelete(slot._id)}
-                          className="bg-red-100 text-red-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-red-200 transition">
-                          Delete
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
             </div>
           )}
         </div>

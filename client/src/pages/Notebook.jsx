@@ -12,6 +12,18 @@ const formatDisplay = (dateStr) => {
   })
 }
 
+// ─── Trigger a browser download from a blob response ──────────────────────────
+const downloadBlob = (blob, filename) => {
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.setAttribute('download', filename)
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
 // ─── Minimal Rich Text Toolbar ────────────────────────────────────────────────
 const Toolbar = ({ onBold, onBullet }) => (
   <div className="flex gap-2 mb-2">
@@ -33,10 +45,11 @@ const Toolbar = ({ onBold, onBullet }) => (
 )
 
 // ─── Single Session Entry ─────────────────────────────────────────────────────
-const SessionEntry = ({ entry, tutorId, studentId, token, onSaved }) => {
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved]   = useState(false)
-  const editorRef           = useRef(null)
+const SessionEntry = ({ entry, studentId, token, onSaved }) => {
+  const [saving, setSaving]     = useState(false)
+  const [saved, setSaved]       = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const editorRef               = useRef(null)
 
   const handleBold = () => {
     document.execCommand('bold', false, null)
@@ -67,6 +80,24 @@ const SessionEntry = ({ entry, tutorId, studentId, token, onSaved }) => {
     }
   }
 
+  const handleExport = async () => {
+    try {
+      setExporting(true)
+      const res = await axios.get(
+        `${API}/api/notes/student/${studentId}/entry/${entry._id}/export`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: 'blob',
+        }
+      )
+      downloadBlob(res.data, `session_${entry.date}.pdf`)
+    } catch (err) {
+      console.error('Failed to export session PDF')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="mb-6">
       {/* Date Divider */}
@@ -91,8 +122,15 @@ const SessionEntry = ({ entry, tutorId, studentId, token, onSaved }) => {
         style={{ lineHeight: '1.7' }}
       />
 
-      {/* Save Button */}
-      <div className="flex justify-end mt-2">
+      {/* Actions */}
+      <div className="flex justify-end items-center gap-2 mt-2">
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          className="text-xs px-4 py-1.5 rounded-full font-semibold transition disabled:opacity-50 bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
+        >
+          {exporting ? 'Exporting…' : '📄 Export PDF'}
+        </button>
         <button
           onClick={handleSave}
           disabled={saving}
@@ -115,6 +153,7 @@ const Notebook = () => {
   const [notes, setNotes]               = useState(null)
   const [loadingStudents, setLoadingStudents] = useState(true)
   const [loadingNotes, setLoadingNotes] = useState(false)
+  const [exportingAll, setExportingAll] = useState(false)
 
   // ── Fetch sidebar students ──────────────────────────────────
   const fetchStudents = async () => {
@@ -150,6 +189,23 @@ const Notebook = () => {
   const handleSelectStudent = (note) => {
     setSelected(note)
     fetchNotes(note.student._id)
+  }
+
+  const handleExportAll = async () => {
+    if (!selectedStudent) return
+    try {
+      setExportingAll(true)
+      const res = await axios.get(
+        `${API}/api/notes/student/${selectedStudent.student._id}/export`,
+        { ...authHeader, responseType: 'blob' }
+      )
+      const safeName = selectedStudent.student.name.replace(/[^a-z0-9]/gi, '_')
+      downloadBlob(res.data, `${safeName}_session_notes.pdf`)
+    } catch (err) {
+      console.error('Failed to export notebook PDF')
+    } finally {
+      setExportingAll(false)
+    }
   }
 
   return (
@@ -217,13 +273,22 @@ const Notebook = () => {
         ) : (
           <div>
             {/* Student Header */}
-            <div className="mb-8">
-              <h1 className="text-2xl font-extrabold text-gray-800">
-                {selectedStudent.student.name}
-              </h1>
-              <p className="text-sm text-gray-400 mt-1">
-                {notes.entries.length} session{notes.entries.length !== 1 ? 's' : ''} recorded
-              </p>
+            <div className="mb-8 flex items-start justify-between">
+              <div>
+                <h1 className="text-2xl font-extrabold text-gray-800">
+                  {selectedStudent.student.name}
+                </h1>
+                <p className="text-sm text-gray-400 mt-1">
+                  {notes.entries.length} session{notes.entries.length !== 1 ? 's' : ''} recorded
+                </p>
+              </div>
+              <button
+                onClick={handleExportAll}
+                disabled={exportingAll}
+                className="text-sm px-4 py-2 rounded-xl font-semibold transition disabled:opacity-50 bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 whitespace-nowrap"
+              >
+                {exportingAll ? 'Exporting…' : '📄 Export Full History'}
+              </button>
             </div>
 
             {/* Session Entries */}
@@ -232,7 +297,6 @@ const Notebook = () => {
                 key={entry._id}
                 entry={entry}
                 studentId={selectedStudent.student._id}
-                tutorId={user.id}
                 token={token}
                 onSaved={() => fetchStudents()}
               />

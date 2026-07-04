@@ -33,46 +33,33 @@ const dateStrToObj = (dateStr) => {
 // ─── ADD SLOT (Tutor/Admin) ───────────────────────────────────────────────────
 const addSlot = async (req, res) => {
   const { date, startTime, endTime, lessonLength, bufferMinutes } = req.body
-
   try {
     if (!date || !startTime || !endTime)
       return res.status(400).json({ message: 'Date, start time and end time are required' })
-
     if (startTime >= endTime)
       return res.status(400).json({ message: 'End time must be after start time' })
 
     // Default to 60 min lessons / 0 min buffer if not supplied (back-compat)
     const lessonMins = Number.isFinite(lessonLength) ? lessonLength : 60
-    const bufferMins = Number.isFinite(bufferMinutes) ? bufferMinutes : 0
+    const bufferMins  = Number.isFinite(bufferMinutes) ? bufferMinutes : 0
 
     if (lessonMins < 15 || lessonMins % 15 !== 0)
       return res.status(400).json({ message: 'Lesson length must be a multiple of 15 minutes' })
-
     if (bufferMins < 0 || bufferMins % 15 !== 0)
       return res.status(400).json({ message: 'Buffer must be a multiple of 15 minutes' })
 
     const durationMins = toMins(endTime) - toMins(startTime)
-
     if (durationMins < lessonMins)
-      return res.status(400).json({
-        message: `Minimum slot length is ${lessonMins} minutes`
-      })
+      return res.status(400).json({ message: `Minimum slot length is ${lessonMins} minutes` })
 
     const dayOfWeek = getDayOfWeek(date)
 
-    const existing = await Availability.find({
-      tutor: req.user.id,
-      date
-    })
-
-    const overlap = existing.some(
-      s => startTime < s.endTime && endTime > s.startTime
+    const existing = await Availability.find({ tutor: req.user.id, date })
+    const overlap = existing.some(s =>
+      startTime < s.endTime && endTime > s.startTime
     )
-
     if (overlap)
-      return res.status(400).json({
-        message: 'This slot overlaps with an existing slot'
-      })
+      return res.status(400).json({ message: 'This slot overlaps with an existing slot' })
 
     const slot = await Availability.create({
       tutor: req.user.id,
@@ -85,59 +72,40 @@ const addSlot = async (req, res) => {
       bufferMinutes: bufferMins,
       isBooked: false
     })
-
     res.status(201).json(slot)
   } catch (err) {
-    res.status(500).json({
-      message: 'Server error',
-      error: err.message
-    })
+    res.status(500).json({ message: 'Server error', error: err.message })
   }
 }
 
-// @desc   Tutor manually creates a booked slot for a student who booked
-//         outside the system (e.g. forgot to add it via the calendar)
-// @route  POST /api/availability/manual-booking
-// @access Private (Tutor)
-const manualBooking = async (req, res) => {
+// ─── ADD MANUAL BOOKING (Tutor/Admin) ─────────────────────────────────────────
+// For when a student forgot to book via the calendar (e.g. arranged a lesson
+// by text or in person). Creates a 'booked' slot directly, skipping the
+// available -> bookSlot flow. Since there's no Student account to link,
+// details are stored on manualStudentName/manualStudentEmail instead of
+// bookedBy, and isManualBooking flags it for the UI.
+const addManualBooking = async (req, res) => {
+  const { date, startTime, endTime, lessonLength, studentName, studentEmail } = req.body
   try {
-    const {
-      date,
-      startTime,
-      endTime,
-      lessonLength,
-      studentName,
-      studentEmail
-    } = req.body
+    if (!date || !startTime || !endTime || !studentName)
+      return res.status(400).json({ message: 'Date, start time, end time and student name are required' })
+    if (startTime >= endTime)
+      return res.status(400).json({ message: 'End time must be after start time' })
 
-    if (!date || !startTime || !endTime || !studentName) {
-      return res.status(400).json({
-        message: 'Date, time, and student name are required'
-      })
-    }
+    const lessonMins = Number.isFinite(lessonLength) ? lessonLength : 60
+    if (lessonMins < 15 || lessonMins % 15 !== 0)
+      return res.status(400).json({ message: 'Lesson length must be a multiple of 15 minutes' })
 
-    const overlap = await Availability.findOne({
-      tutor: req.user.id,
-      date,
-      startTime: { $lt: endTime },
-      endTime: { $gt: startTime }
-    })
+    const dayOfWeek = getDayOfWeek(date)
 
-    if (overlap) {
-      return res.status(409).json({
-        message: 'This overlaps with an existing slot on your calendar'
-      })
-    }
-
-    const dayOfWeek = [
-      'Sunday',
-      'Monday',
-      'Tuesday',
-      'Wednesday',
-      'Thursday',
-      'Friday',
-      'Saturday'
-    ][new Date(date).getDay()]
+    // Same overlap check as addSlot — a manual booking still can't collide
+    // with anything already on the tutor's calendar that day.
+    const existing = await Availability.find({ tutor: req.user.id, date })
+    const overlap = existing.some(s =>
+      startTime < s.endTime && endTime > s.startTime
+    )
+    if (overlap)
+      return res.status(409).json({ message: 'This overlaps with an existing slot on your calendar' })
 
     const slot = await Availability.create({
       tutor: req.user.id,
@@ -145,23 +113,18 @@ const manualBooking = async (req, res) => {
       dayOfWeek,
       startTime,
       endTime,
-      lessonLength: lessonLength || 60,
       slotType: 'booked',
+      lessonLength: lessonMins,
+      bufferMinutes: 0,
       isBooked: true,
       isManualBooking: true,
       manualStudentName: studentName,
       manualStudentEmail: studentEmail || null
     })
 
-    res.json({
-      message: `Booking added for ${studentName} ✅`,
-      slot
-    })
+    res.status(201).json({ message: `Booking added for ${studentName} ✅`, slot })
   } catch (err) {
-    console.error(err)
-    res.status(500).json({
-      message: 'Failed to add booking'
-    })
+    res.status(500).json({ message: 'Server error', error: err.message })
   }
 }
 
@@ -419,11 +382,18 @@ const unbookSlot = async (req, res) => {
       return res.status(400).json({ message: 'This slot is not a booking' })
 
     if (req.user.role === 'student' || req.user.role === 'parent') {
-      if (bookedSlot.bookedBy.toString() !== req.user.id)
+      if (!bookedSlot.bookedBy || bookedSlot.bookedBy.toString() !== req.user.id)
         return res.status(403).json({ message: 'You can only cancel your own bookings' })
     }
 
     const { date, parentSlotId, tutor, dayOfWeek, lessonLength, bufferMinutes } = bookedSlot
+
+    // ── Manual bookings have no parentSlotId / carved-out siblings to ──
+    // restore — just remove the booking itself and stop there.
+    if (bookedSlot.isManualBooking) {
+      await bookedSlot.deleteOne()
+      return res.json({ message: 'Manual booking removed ✅' })
+    }
 
     // ── Step 1: gather siblings (buffer slots) sharing the same parentSlotId ──
     const siblings = parentSlotId
@@ -669,6 +639,7 @@ const clearDay = async (req, res) => {
 // ─── EXPORTS ──────────────────────────────────────────────────────────────────
 module.exports = {
   addSlot,
+  addManualBooking,
   getSlotsByWeek,
   getAllSlots,
   getMyBookings,
