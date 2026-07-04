@@ -41,28 +41,33 @@ const RatingScale = ({ value, onChange }) => {
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-xs font-semibold text-gray-400 w-4 text-right">0</span>
-      <div
-        ref={trackRef}
-        onClick={handleClick}
-        className="relative flex-1 h-6 bg-gray-100 rounded-full cursor-pointer border border-gray-200"
-        title="Click where you'd rate this student on this topic"
-      >
+    <div className="flex flex-col gap-1.5 w-full">
+      {/* Slider row: 0 — track — 5 */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold text-gray-400 w-4 text-right shrink-0">0</span>
         <div
-          className="absolute top-0 left-0 h-full bg-amber-300 rounded-full transition-all"
-          style={{ width: `${(value / 5) * 100}%` }}
-        />
-        <div
-          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 bg-white border-2 border-amber-500 rounded-full shadow transition-all"
-          style={{ left: `${(value / 5) * 100}%` }}
-        />
+          ref={trackRef}
+          onClick={handleClick}
+          className="relative flex-1 h-6 bg-gray-100 rounded-full cursor-pointer border border-gray-200"
+          title="Click where you'd rate this student on this topic"
+        >
+          <div
+            className="absolute top-0 left-0 h-full bg-amber-300 rounded-full transition-all"
+            style={{ width: `${(value / 5) * 100}%` }}
+          />
+          <div
+            className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 bg-white border-2 border-amber-500 rounded-full shadow transition-all"
+            style={{ left: `${(value / 5) * 100}%` }}
+          />
+        </div>
+        <span className="text-xs font-semibold text-gray-400 w-4 shrink-0">5</span>
       </div>
-      <span className="text-xs font-semibold text-gray-400 w-4">5</span>
-      <div className="flex items-center gap-1 ml-1 w-16 shrink-0">
+      {/* Readout row: stars + numeric value, given their own line so they
+          never compete for space with the slider or the topic name. */}
+      <div className="flex items-center justify-end gap-2">
         <StarDisplay rating={value} />
+        <span className="text-xs font-bold text-amber-600 w-8 text-right">{value.toFixed(1)}</span>
       </div>
-      <span className="text-xs font-bold text-amber-600 w-7 shrink-0">{value.toFixed(1)}</span>
     </div>
   )
 }
@@ -213,23 +218,23 @@ const TopicPanel = ({ studentId, entryId, token, topicsCovered, onChange }) => {
       ) : (
         <div className="flex flex-col gap-3">
           {topicsCovered.map(({ topic, rating }) => (
-            <div key={topic._id} className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-gray-700 w-24 shrink-0 truncate" title={topic.name}>
-                {topic.name}
-              </span>
-              <div className="flex-1">
-                <RatingScale
-                  value={rating}
-                  onChange={(newRating) => handleRatingChange(topic._id, newRating)}
-                />
+            <div key={topic._id} className="flex flex-col gap-1.5 pb-3 border-b border-gray-100 last:border-b-0 last:pb-0">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-700 truncate" title={topic.name}>
+                  {topic.name}
+                </span>
+                <button
+                  onClick={() => handleRemoveTopic(topic._id)}
+                  className="text-xs text-gray-300 hover:text-red-400 transition shrink-0"
+                  title="Remove topic"
+                >
+                  ✕
+                </button>
               </div>
-              <button
-                onClick={() => handleRemoveTopic(topic._id)}
-                className="text-xs text-gray-300 hover:text-red-400 transition shrink-0"
-                title="Remove topic"
-              >
-                ✕
-              </button>
+              <RatingScale
+                value={rating}
+                onChange={(newRating) => handleRatingChange(topic._id, newRating)}
+              />
             </div>
           ))}
         </div>
