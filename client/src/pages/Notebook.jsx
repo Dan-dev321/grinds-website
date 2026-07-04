@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import { useAuth } from '../context/AuthContext'
+import TopicPanel from '../components/TopicPanel'
 
 const API = import.meta.env.VITE_API_URL
 
@@ -203,6 +204,7 @@ const SessionEntry = ({ entry, studentId, token, onSaved, defaultExpanded }) => 
   const [tags, setTags]         = useState(entry.tags || [])
   const [pinned, setPinned]     = useState(entry.pinned || false)
   const [pinning, setPinning]   = useState(false)
+  const [topicsCovered, setTopicsCovered] = useState(entry.topicsCovered || [])
   const editorRef               = useRef(null)
 
   const handleBold = () => {
@@ -313,6 +315,11 @@ const SessionEntry = ({ entry, studentId, token, onSaved, defaultExpanded }) => 
               )}
             </div>
           )}
+          {topicsCovered.length > 0 && (
+            <span className="text-[10px] text-gray-400 font-semibold shrink-0" title="Topics covered">
+              📚 {topicsCovered.length}
+            </span>
+          )}
           <span className="text-sm text-gray-500 truncate">
             {previewText || <span className="italic text-gray-300">No notes yet</span>}
           </span>
@@ -350,21 +357,37 @@ const SessionEntry = ({ entry, studentId, token, onSaved, defaultExpanded }) => 
 
       <TagEditor tags={tags} onChange={setTags} />
 
-      <Toolbar
-        onBold={handleBold}
-        onBullet={handleBullet}
-        onHighlight={handleHighlight}
-        onClearHighlight={handleClearHighlight}
-      />
+      {/* Editor + Topics side-by-side — fills the empty horizontal space
+          next to a single short note, and scales down to stacked on smaller
+          screens via the responsive flex-col/flex-row switch. */}
+      <div className="flex flex-col lg:flex-row gap-4 mb-2">
+        <div className="flex-1 min-w-0">
+          <Toolbar
+            onBold={handleBold}
+            onBullet={handleBullet}
+            onHighlight={handleHighlight}
+            onClearHighlight={handleClearHighlight}
+          />
+          <div
+            ref={editorRef}
+            contentEditable
+            suppressContentEditableWarning
+            dangerouslySetInnerHTML={{ __html: entry.content || '' }}
+            className="min-h-[80px] w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+            style={{ lineHeight: '1.7' }}
+          />
+        </div>
 
-      <div
-        ref={editorRef}
-        contentEditable
-        suppressContentEditableWarning
-        dangerouslySetInnerHTML={{ __html: entry.content || '' }}
-        className="min-h-[80px] w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
-        style={{ lineHeight: '1.7' }}
-      />
+        <div className="lg:w-80 shrink-0">
+          <TopicPanel
+            studentId={studentId}
+            entryId={entry._id}
+            token={token}
+            topicsCovered={topicsCovered}
+            onChange={setTopicsCovered}
+          />
+        </div>
+      </div>
 
       <div className="flex justify-end items-center gap-2 mt-2">
         <button

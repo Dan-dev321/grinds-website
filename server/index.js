@@ -47,6 +47,7 @@ const noteRoutes         = require('./routes/noteRoutes')
 const studentRoutes      = require('./routes/studentRoutes')
 const sessionRoutes      = require('./routes/sessionRoutes')
 const cronRoutes         = require('./routes/cronRoutes')
+const topicRoutes        = require('./routes/topicRoutes')
 
 app.use('/api/auth',         authRoutes)
 app.use('/api/availability', availabilityRoutes)
@@ -55,7 +56,7 @@ app.use('/api/notes',        noteRoutes)
 app.use('/api/students',     studentRoutes)
 app.use('/api/sessions',     sessionRoutes)
 app.use('/api/cron',         cronRoutes)
-
+app.use('/api/topics',      topicRoutes)
 
 // ========================
 // HEALTH CHECK

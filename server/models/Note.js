@@ -8,6 +8,10 @@ const sessionEntrySchema = new mongoose.Schema({
   content: { type: String, default: '' },
   tags: { type: [String], default: [] },
   pinned: { type: Boolean, default: false },
+  topicsCovered: [{
+    topic: { type: mongoose.Schema.Types.ObjectId, ref: 'Topic', required: true },
+    rating: { type: Number, min: 0, max: 5, required: true },
+  }],
 }, { timestamps: true })
 
 const noteSchema = new mongoose.Schema({
