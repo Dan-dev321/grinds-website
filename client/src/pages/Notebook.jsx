@@ -45,6 +45,9 @@ const Toolbar = ({ onBold, onBullet }) => (
 )
 
 // ─── Single Session Entry ─────────────────────────────────────────────────────
+// onSaved now receives the saved content string, so the parent can update its
+// own state (the source of truth for dangerouslySetInnerHTML) instead of the
+// editor silently drifting out of sync with what's actually in the database.
 const SessionEntry = ({ entry, studentId, token, onSaved }) => {
   const [saving, setSaving]     = useState(false)
   const [saved, setSaved]       = useState(false)
@@ -72,7 +75,9 @@ const SessionEntry = ({ entry, studentId, token, onSaved }) => {
       )
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
-      if (onSaved) onSaved()
+      // Push the saved content back up so parent state (and therefore the
+      // editor's source-of-truth prop) reflects what's actually saved.
+      if (onSaved) onSaved(entry._id, content)
     } catch (err) {
       console.error('Failed to save notes')
     } finally {
@@ -191,6 +196,25 @@ const Notebook = () => {
     fetchNotes(note.student._id)
   }
 
+  // ── Update a single entry's content in local state after a successful save.
+  // This is what actually fixes the "goes blank" bug: the editor's content
+  // prop (entry.content) now matches what was just persisted, instead of
+  // staying stale until a full page reload re-fetches everything from the DB.
+  const handleEntrySaved = (entryId, newContent) => {
+    setNotes(prev => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        entries: prev.entries.map(e =>
+          e._id === entryId ? { ...e, content: newContent } : e
+        ),
+      }
+    })
+    // Sidebar "last seen" info can still refresh in the background —
+    // this no longer needs to carry the content-sync responsibility.
+    fetchStudents()
+  }
+
   const handleExportAll = async () => {
     if (!selectedStudent) return
     try {
@@ -298,7 +322,7 @@ const Notebook = () => {
                 entry={entry}
                 studentId={selectedStudent.student._id}
                 token={token}
-                onSaved={() => fetchStudents()}
+                onSaved={handleEntrySaved}
               />
             ))}
           </div>
