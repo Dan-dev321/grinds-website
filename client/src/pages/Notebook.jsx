@@ -357,10 +357,10 @@ const SessionEntry = ({ entry, studentId, token, onSaved, defaultExpanded }) => 
 
       <TagEditor tags={tags} onChange={setTags} />
 
-      {/* Editor + Topics side-by-side — fills the empty horizontal space
-          next to a single short note, and scales down to stacked on smaller
-          screens via the responsive flex-col/flex-row switch. */}
-      <div className="flex flex-col lg:flex-row gap-4 mb-2">
+      {/* Editor + Topics side-by-side — the topic panel is visually distinct
+          (own card, tinted background) so it reads as a separate module
+          rather than cramped into the same box as the note editor. */}
+      <div className="flex flex-col lg:flex-row gap-6 mb-2 items-start">
         <div className="flex-1 min-w-0">
           <Toolbar
             onBold={handleBold}
@@ -378,7 +378,7 @@ const SessionEntry = ({ entry, studentId, token, onSaved, defaultExpanded }) => 
           />
         </div>
 
-        <div className="lg:w-80 shrink-0">
+        <div className="lg:w-96 w-full shrink-0 bg-gray-50 rounded-2xl p-1">
           <TopicPanel
             studentId={studentId}
             entryId={entry._id}
@@ -563,7 +563,7 @@ const Notebook = () => {
             <p className="text-sm mt-1">Mark a session as complete to create the first entry</p>
           </div>
         ) : (
-          <div className="max-w-3xl">
+          <div className="max-w-5xl">
             <div className="mb-6 flex items-start justify-between">
               <div>
                 <h1 className="text-2xl font-extrabold text-gray-800">
