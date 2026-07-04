@@ -231,5 +231,3 @@ module.exports = {
   exportStudentPDF,
   exportEntryPDF,
 }
-
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjZhNDkzZTcxZTNhM2E0ZTkyNzQyYzc5MiIsInJvbGUiOiJ0dXRvciIsImlhdCI6MTc4MzE4Njk1NywiZXhwIjoxNzgzNzkxNzU3fQ.kW4JnA9haOBi5ZIAvIzLJJnWEGEDBBzcD_FhTP0cqJA
