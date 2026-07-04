@@ -190,7 +190,7 @@ const TopicPanel = ({ studentId, entryId, token, topicsCovered, onChange }) => {
   }
 
   return (
-    <div className="border border-gray-100 rounded-xl p-4 bg-white">
+    <div className="border border-gray-100 rounded-xl p-4 bg-white h-full flex flex-col">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-bold text-gray-700">📚 Topics Covered</h3>
         {saving && <span className="text-xs text-gray-400">Saving…</span>}
@@ -205,9 +205,11 @@ const TopicPanel = ({ studentId, entryId, token, topicsCovered, onChange }) => {
       </div>
 
       {topicsCovered.length === 0 ? (
-        <p className="text-xs text-gray-400 italic text-center py-4">
-          No topics added for this session yet
-        </p>
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-xs text-gray-400 italic text-center py-4">
+            No topics added for this session yet
+          </p>
+        </div>
       ) : (
         <div className="flex flex-col gap-3">
           {topicsCovered.map(({ topic, rating }) => (

@@ -360,7 +360,7 @@ const SessionEntry = ({ entry, studentId, token, onSaved, defaultExpanded }) => 
       {/* Editor + Topics side-by-side — the topic panel is visually distinct
           (own card, tinted background) so it reads as a separate module
           rather than cramped into the same box as the note editor. */}
-      <div className="flex flex-col lg:flex-row gap-6 mb-2 items-start">
+      <div className="flex flex-col lg:flex-row gap-6 mb-2 items-stretch">
         <div className="flex-1 min-w-0">
           <Toolbar
             onBold={handleBold}
@@ -373,12 +373,12 @@ const SessionEntry = ({ entry, studentId, token, onSaved, defaultExpanded }) => 
             contentEditable
             suppressContentEditableWarning
             dangerouslySetInnerHTML={{ __html: entry.content || '' }}
-            className="min-h-[80px] w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+            className="min-h-[160px] w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
             style={{ lineHeight: '1.7' }}
           />
         </div>
 
-        <div className="lg:w-96 w-full shrink-0 bg-gray-50 rounded-2xl p-1">
+        <div className="lg:w-[28rem] w-full shrink-0 bg-gray-50 rounded-2xl p-1 flex flex-col">
           <TopicPanel
             studentId={studentId}
             entryId={entry._id}
