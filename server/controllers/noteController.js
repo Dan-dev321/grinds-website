@@ -71,6 +71,7 @@ const getNotebookStudents = async (req, res) => {
   try {
     const notes = await Note.find({ tutor: req.user.id })
       .populate('student', 'name email')
+      .populate('entries.topicsCovered.topic', 'name')
       .sort({ lastSessionDate: -1 }) // most recently active first
     res.json(notes)
   } catch (err) {
@@ -84,7 +85,9 @@ const getStudentNotes = async (req, res) => {
     const note = await Note.findOne({
       tutor: req.user.id,
       student: req.params.studentId
-    }).populate('student', 'name email')
+    })
+      .populate('student', 'name email')
+      .populate('entries.topicsCovered.topic', 'name')
 
     if (!note) return res.status(404).json({ message: 'No notes found for this student' })
     res.json(note)
