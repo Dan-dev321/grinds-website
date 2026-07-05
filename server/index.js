@@ -62,6 +62,7 @@ app.use('/api/topics',      topicRoutes)
 // HEALTH CHECK
 // ========================
 app.get('/', (req, res) => res.send('TutorNode server running ✅'))
+app.get('/health', (req, res) => res.json({ status: 'ok' }))
 
 // ========================
 // DATANode

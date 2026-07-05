@@ -11,7 +11,7 @@ const ALL_FEATURES = [
   'Invite link registration',
   'PDF session exports',
   'Attendance tracking',
-  'Homework tracking',
+  'Progress tracking',
   'Advanced analytics',
 ]
 

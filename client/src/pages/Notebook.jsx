@@ -55,7 +55,7 @@ const HIGHLIGHTS = [
 ]
 
 // ─── Preset tags — tutor can also add their own custom tags alongside these ───
-const PRESET_TAGS = ['Homework', 'Test Prep', 'Struggled', 'Went Well']
+const PRESET_TAGS = ['Homework', 'Test Prep', 'Struggled', 'Went Well', 'Homework Completed']
 
 // Deterministic colour per tag (so a given tag always looks the same)
 const TAG_COLOURS = [

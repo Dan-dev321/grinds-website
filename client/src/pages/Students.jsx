@@ -110,7 +110,7 @@ const SvgBarChart = ({ data, labelKey, countKey, barColour = '#3b82f6', labelSho
 }
 
 // ─── SVG Line Chart ───────────────────────────────────────────────────────────
-const SvgLineChart = ({ data, labelKey, countKey, lineColour = '#3b82f6', labelShort, height = 140 }) => {
+const SvgLineChart = ({ data, labelKey, countKey, lineColour = '#3b82f6', labelShort, height = 140, ySuffix = '' }) => {
   if (!data || data.length < 2) return (
     <p className="text-sm text-gray-400 text-center py-6">Not enough data yet</p>
   )
@@ -158,7 +158,7 @@ const SvgLineChart = ({ data, labelKey, countKey, lineColour = '#3b82f6', labelS
           <g key={f}>
             <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="#f3f4f6" strokeWidth="1" />
             <text x={padL - 4} y={y + 4} textAnchor="end" fontSize="9" fill="#9ca3af">
-              {Math.round(f * max)}
+              {Math.round(f * max)}{ySuffix}
             </text>
           </g>
         )
@@ -1008,6 +1008,7 @@ const Students = () => {
                         countKey="rate"
                         lineColour="#ef4444"
                         labelShort={d => fmtMonth(d.month)}
+                        ySuffix="%"
                       />
                     )}
                   </div>
