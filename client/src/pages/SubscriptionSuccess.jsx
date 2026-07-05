@@ -2,13 +2,14 @@ import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
+const API = import.meta.env.VITE_API_URL
+
 const SubscriptionSuccess = () => {
-  const [searchParams]  = useSearchParams()
-  const { user } = useAuth()
-  const [status, setStatus] = useState('loading') // loading | success | error
+  const [searchParams] = useSearchParams()
+  const { token } = useAuth()                        // ✅ token directly, not user.token
+  const [status, setStatus] = useState('loading')
 
   useEffect(() => {
-    // The session_id comes back from Stripe in the success URL
     const sessionId = searchParams.get('session_id')
 
     if (!sessionId) {
@@ -16,15 +17,13 @@ const SubscriptionSuccess = () => {
       return
     }
 
-    // Poll /api/stripe/status to confirm webhook has fired
-    // Retry up to 5 times with 1.5s gaps (webhooks can take a moment)
     let attempts = 0
     const MAX    = 5
 
     const poll = async () => {
       try {
-        const res  = await fetch('/api/stripe/status', {
-          headers: { Authorization: `Bearer ${user?.token}` },
+        const res  = await fetch(`${API}/api/stripe/status`, {   // ✅ API base URL added
+          headers: { Authorization: `Bearer ${token}` },
         })
         const data = await res.json()
 
@@ -34,8 +33,6 @@ const SubscriptionSuccess = () => {
           attempts++
           setTimeout(poll, 1500)
         } else {
-          // Webhook might be delayed — show success anyway,
-          // the DB will update when it arrives
           setStatus('success')
         }
       } catch {
@@ -86,7 +83,6 @@ const SubscriptionSuccess = () => {
     <div className="min-h-screen bg-surface-100 flex items-center justify-center px-4">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-10 max-w-md w-full text-center">
 
-        {/* Animated checkmark */}
         <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
           <span className="text-4xl">✅</span>
         </div>
@@ -99,7 +95,6 @@ const SubscriptionSuccess = () => {
           Head to your dashboard to get started.
         </p>
 
-        {/* Quick links */}
         <div className="flex flex-col gap-3">
           <Link
             to="/dashboard/tutor"
@@ -115,7 +110,6 @@ const SubscriptionSuccess = () => {
           </Link>
         </div>
 
-        {/* What's next cards */}
         <div className="mt-8 grid grid-cols-1 gap-3 text-left">
           {[
             { icon: '🔗', title: 'Share your invite link', desc: 'Copy your link and send it to students.' },

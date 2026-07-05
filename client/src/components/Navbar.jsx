@@ -6,7 +6,7 @@ const Navbar = () => {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuOpen, setMenuOpen]       = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const handleLogout = () => {
@@ -28,6 +28,17 @@ const Navbar = () => {
 
   const isTutor = user?.role === 'tutor'
   const isOwner = user?.role === 'owner'
+  const isStudent = user?.role === 'student'
+
+  // ── Subscription gate check (client-side, from JWT) ──────────
+  // trial_expired is computed: status === 'trial' but trialEnds has passed
+  const subStatus = user?.subscription?.status
+  const trialEnds = user?.subscription?.trialEnds
+  const isTrialExpired =
+    subStatus === 'trial_expired' ||
+    (subStatus === 'trial' && trialEnds && new Date() > new Date(trialEnds))
+  const hasActiveAccess =
+    subStatus === 'active' || (subStatus === 'trial' && !isTrialExpired)
 
   // Active link helper
   const isActive = (path) => location.pathname === path
@@ -41,28 +52,36 @@ const Navbar = () => {
 
   // ── Links per role ────────────────────────────────────────────
   const publicLinks = [
-    { to: '/',            label: 'Home'      },
-    { to: '/features',    label: 'Features'  },
-    { to: '/pricing',     label: 'Pricing'   },
+    { to: '/',        label: 'Home'    },
+    { to: '/features', label: 'Features' },
+    { to: '/pricing', label: 'Pricing' },
   ]
 
   const studentLinks = [
+    { to: '/dashboard/student',   label: 'Dashboard'      },
     { to: '/studentavailability', label: 'Book a Session' },
   ]
 
-  const tutorLinks = [
-    { to: '/dashboard/tutor', label: 'Dashboard' },
-    { to: '/students',        label: 'Students' },
-    { to: '/tutoravailability',    label: 'Calendar' },
-    { to: '/notebook',         label: 'Notes' },
-  ]
+  // Tutors with expired/cancelled subscriptions only see Dashboard + Pricing
+  // Active/trial tutors see the full nav
+  const tutorLinks = hasActiveAccess
+    ? [
+        { to: '/dashboard/tutor',   label: 'Dashboard' },
+        { to: '/students',          label: 'Students'  },
+        { to: '/tutoravailability', label: 'Calendar'  },
+        { to: '/notebook',          label: 'Notes'     },
+      ]
+    : [
+        { to: '/dashboard/tutor', label: 'Dashboard' },
+        { to: '/pricing',         label: 'Upgrade ✨' },
+      ]
 
   const ownerLinks = [
     { to: '/dashboard/owner', label: 'Owner Panel' },
   ]
 
   const getNavLinks = () => {
-    if (!user)              return publicLinks
+    if (!user)                   return publicLinks
     if (user.role === 'student') return studentLinks
     if (user.role === 'tutor')   return tutorLinks
     if (user.role === 'owner')   return ownerLinks
@@ -103,12 +122,10 @@ const Navbar = () => {
           <div className="hidden md:flex items-center gap-3">
             {user ? (
               <div className="relative">
-                {/* Avatar button */}
                 <button
                   onClick={() => setDropdownOpen(prev => !prev)}
                   className="flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white px-3 py-1.5 rounded-xl transition-all duration-150"
                 >
-                  {/* Initials avatar */}
                   <div className="w-6 h-6 bg-accent-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
                     {user.name?.charAt(0).toUpperCase()}
                   </div>
@@ -123,10 +140,8 @@ const Navbar = () => {
                   </svg>
                 </button>
 
-                {/* Dropdown */}
                 {dropdownOpen && (
                   <>
-                    {/* Backdrop to close */}
                     <div
                       className="fixed inset-0 z-10"
                       onClick={() => setDropdownOpen(false)}
@@ -137,9 +152,27 @@ const Navbar = () => {
                       <div className="px-4 py-3 bg-surface-100 border-b border-gray-100">
                         <p className="text-sm font-semibold text-gray-900">{user.name}</p>
                         <p className="text-xs text-gray-500 truncate">{user.email}</p>
-                        <span className="inline-block mt-1 text-xs font-semibold bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full capitalize">
-                          {user.role}
-                        </span>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-xs font-semibold bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full capitalize">
+                            {user.role}
+                          </span>
+                          {/* ── Subscription status pill ── */}
+                          {isTutor && (
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                              subStatus === 'active'
+                                ? 'bg-emerald-100 text-emerald-700'
+                                : isTrialExpired
+                                ? 'bg-red-100 text-red-600'
+                                : 'bg-amber-100 text-amber-700'
+                            }`}>
+                              {subStatus === 'active'
+                                ? 'Active'
+                                : isTrialExpired
+                                ? 'Trial expired'
+                                : 'Trial'}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Links */}
@@ -152,7 +185,19 @@ const Navbar = () => {
                           <span>🏠</span> Dashboard
                         </Link>
 
-                        {isTutor && (
+                        {/* Student dropdown links */}
+                        {isStudent && (
+                          <Link
+                            to="/studentavailability"
+                            onClick={() => setDropdownOpen(false)}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-brand-50 hover:text-brand-700 transition-colors duration-100"
+                          >
+                            <span>📅</span> Book a Session
+                          </Link>
+                        )}
+
+                        {/* Tutor dropdown links — only if active/trial */}
+                        {isTutor && hasActiveAccess && (
                           <>
                             <Link
                               to="/notebook"
@@ -162,13 +207,24 @@ const Navbar = () => {
                               <span>📓</span> Notebook
                             </Link>
                             <Link
-                              to="/availability"
+                              to="/tutoravailability"
                               onClick={() => setDropdownOpen(false)}
                               className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-brand-50 hover:text-brand-700 transition-colors duration-100"
                             >
                               <span>📅</span> Calendar
                             </Link>
                           </>
+                        )}
+
+                        {/* Expired tutor — show upgrade link */}
+                        {isTutor && !hasActiveAccess && (
+                          <Link
+                            to="/pricing"
+                            onClick={() => setDropdownOpen(false)}
+                            className="flex items-center gap-2 px-4 py-2.5 text-sm text-amber-600 hover:bg-amber-50 transition-colors duration-100 font-semibold"
+                          >
+                            <span>✨</span> Upgrade plan
+                          </Link>
                         )}
 
                         {isOwner && (
@@ -237,7 +293,6 @@ const Navbar = () => {
       {menuOpen && (
         <div className="md:hidden bg-brand-700 border-t border-brand-500 px-4 py-4 flex flex-col gap-1">
 
-          {/* Nav links */}
           {navLinks.map(link => (
             <Link
               key={link.to}
@@ -275,13 +330,36 @@ const Navbar = () => {
                   🏠 Dashboard
                 </Link>
 
-                {isTutor && (
+                {/* Student mobile links */}
+                {isStudent && (
+                  <Link
+                    to="/studentavailability"
+                    onClick={() => setMenuOpen(false)}
+                    className="px-3 py-2.5 rounded-xl text-sm font-medium text-brand-100 hover:bg-brand-600 hover:text-white transition-colors duration-150"
+                  >
+                    📅 Book a Session
+                  </Link>
+                )}
+
+                {/* Tutor mobile links — only if active/trial */}
+                {isTutor && hasActiveAccess && (
                   <Link
                     to="/notebook"
                     onClick={() => setMenuOpen(false)}
                     className="px-3 py-2.5 rounded-xl text-sm font-medium text-brand-100 hover:bg-brand-600 hover:text-white transition-colors duration-150"
                   >
                     📓 Notebook
+                  </Link>
+                )}
+
+                {/* Expired tutor mobile — show upgrade */}
+                {isTutor && !hasActiveAccess && (
+                  <Link
+                    to="/pricing"
+                    onClick={() => setMenuOpen(false)}
+                    className="px-3 py-2.5 rounded-xl text-sm font-semibold text-amber-300 hover:bg-brand-600 hover:text-amber-200 transition-colors duration-150"
+                  >
+                    ✨ Upgrade plan
                   </Link>
                 )}
 
