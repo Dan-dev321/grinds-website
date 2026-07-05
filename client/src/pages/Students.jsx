@@ -34,7 +34,32 @@ const getStageColour = (value) =>
 const getStageLabel = (value) =>
   PROGRESS_STAGES.find(s => s.value === value)?.label ?? 'Just Started'
 
-// ─── Field component for view mode ────────────────────────────────────────────
+// ─── Tiny reusable bar chart ──────────────────────────────────────────────────
+const BarChart = ({ data, labelKey, countKey, barColour = 'bg-blue-500', labelShort }) => {
+  const max = Math.max(...data.map(d => d[countKey]), 1)
+  return (
+    <div className="flex flex-col gap-2">
+      {data.map((d, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <span className="text-xs text-gray-500 w-24 shrink-0 truncate">
+            {labelShort ? labelShort(d) : d[labelKey]}
+          </span>
+          <div className="flex-1 bg-gray-100 rounded-full h-2">
+            <div
+              className={`${barColour} h-2 rounded-full transition-all duration-500`}
+              style={{ width: `${(d[countKey] / max) * 100}%` }}
+            />
+          </div>
+          <span className="text-xs font-bold text-gray-600 w-5 text-right shrink-0">
+            {d[countKey]}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── Field component for view mode ───────────────────────────────────────────
 const Row = ({ label, value }) => (
   <div className="flex gap-2">
     <span className="text-gray-400 w-28 shrink-0 text-xs">{label}</span>
@@ -42,7 +67,7 @@ const Row = ({ label, value }) => (
   </div>
 )
 
-// ─── Field component for edit mode ────────────────────────────────────────────
+// ─── Field component for edit mode ───────────────────────────────────────────
 const Field = ({ label, name, value, onChange, type = 'text', placeholder = '' }) => (
   <div className="flex flex-col gap-1">
     <label className="text-xs font-semibold text-gray-500">{label}</label>
@@ -68,7 +93,7 @@ const Field = ({ label, name, value, onChange, type = 'text', placeholder = '' }
   </div>
 )
 
-// ─── Student Modal ─────────────────────────────────────────────────────────────
+// ─── Student Modal ────────────────────────────────────────────────────────────
 const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) => {
   const { token } = useAuth()
   const authHeader = token ? { headers: { Authorization: `Bearer ${token}` } } : {}
@@ -90,7 +115,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileFlash, setProfileFlash]   = useState('')
 
-  const [stage, setStage]         = useState(student.progressStage || 'just-started')
+  const [stage, setStage]             = useState(student.progressStage || 'just-started')
   const [savingStage, setSavingStage] = useState(false)
   const [stageFlash, setStageFlash]   = useState('')
 
@@ -115,6 +140,15 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
   const completed = sessions.filter(s => s.status === 'completed')
   const noShows   = sessions.filter(s => s.status === 'no-show')
   const stageIndex = PROGRESS_STAGES.findIndex(s => s.value === stage)
+
+  const totalHours = +(
+    completed.reduce((acc, s) => acc + (s.lessonLength ?? 60), 0) / 60
+  ).toFixed(1)
+
+  const decided = sessions.filter(s => s.status !== 'upcoming')
+  const completionRate = decided.length
+    ? Math.round((completed.length / decided.length) * 100)
+    : null
 
   const handleFormChange = (e) => {
     const { name, value } = e.target
@@ -178,7 +212,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
         className="relative w-full max-w-md bg-white h-full shadow-xl flex flex-col"
         onClick={e => e.stopPropagation()}
       >
-        {/* ── Header ── */}
+        {/* Header */}
         <div className="sticky top-0 bg-white z-10 border-b border-gray-100 px-6 py-4">
           <div className="flex items-start justify-between gap-4 mb-3">
             <div className="flex-1 min-w-0">
@@ -220,16 +254,19 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
           </div>
         </div>
 
-        {/* ── Body ── */}
+        {/* Body */}
         <div className="overflow-y-auto flex-1 p-6 flex flex-col gap-6">
 
+          {/* ── OVERVIEW TAB ── */}
           {tab === 'overview' && (
             <>
-              <div className="grid grid-cols-3 gap-3">
+              {/* Stat pills */}
+              <div className="grid grid-cols-2 gap-3">
                 {[
-                  { icon: '📅', label: 'Upcoming',  val: upcoming.length,  bg: 'bg-blue-50',  num: 'text-blue-700' },
-                  { icon: '✅', label: 'Completed', val: completed.length, bg: 'bg-green-50', num: 'text-green-700' },
-                  { icon: '🚫', label: 'No Shows',  val: noShows.length,   bg: 'bg-red-50',   num: 'text-red-500' },
+                  { icon: '📅', label: 'Upcoming',       val: upcoming.length,  bg: 'bg-blue-50',   num: 'text-blue-700'  },
+                  { icon: '✅', label: 'Completed',      val: completed.length, bg: 'bg-green-50',  num: 'text-green-700' },
+                  { icon: '🚫', label: 'No Shows',       val: noShows.length,   bg: 'bg-red-50',    num: 'text-red-500'   },
+                  { icon: '🕐', label: 'Hours Taught',   val: totalHours,       bg: 'bg-amber-50',  num: 'text-amber-600' },
                 ].map(({ icon, label, val, bg, num }) => (
                   <div key={label} className={`rounded-xl px-3 py-2.5 text-center ${bg}`}>
                     <p className="text-base">{icon}</p>
@@ -239,6 +276,34 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
                 ))}
               </div>
 
+              {/* Completion rate bar */}
+              {completionRate !== null && (
+                <div className="bg-gray-50 rounded-xl p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-xs font-bold text-gray-600">🎯 Completion Rate</span>
+                    <span className={`text-xs font-extrabold ${
+                      completionRate >= 80 ? 'text-green-600' :
+                      completionRate >= 50 ? 'text-yellow-600' : 'text-red-500'
+                    }`}>
+                      {completionRate}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all duration-700 ${
+                        completionRate >= 80 ? 'bg-green-500' :
+                        completionRate >= 50 ? 'bg-yellow-400' : 'bg-red-400'
+                      }`}
+                      style={{ width: `${completionRate}%` }}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    {completed.length} completed · {noShows.length} no-show{noShows.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              )}
+
+              {/* Progress stage */}
               <section>
                 <h3 className="text-sm font-bold text-gray-700 mb-3">📈 Progress Stage</h3>
                 <div className="flex gap-1 mb-3">
@@ -284,6 +349,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
 
               <hr className="border-gray-100" />
 
+              {/* Profile — VIEW mode */}
               {!editing && (
                 <section>
                   <div className="flex items-center justify-between mb-3">
@@ -324,24 +390,23 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
                     )}
                     {!student.phone && !student.school && !student.yearGroup &&
                      !student.examBoard && !student.parentName && !student.goals && (
-                      <p className="text-xs text-gray-400 text-center py-2">No profile details yet — click Edit Profile to add some</p>
+                      <p className="text-xs text-gray-400 text-center py-2">
+                        No profile details yet — click Edit Profile to add some
+                      </p>
                     )}
                   </div>
                 </section>
               )}
 
+              {/* Profile — EDIT mode */}
               {editing && (
                 <section>
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-bold text-gray-700">✏️ Edit Profile</h3>
-                    <button
-                      onClick={handleCancelEdit}
-                      className="text-xs text-gray-400 hover:text-gray-600 font-medium"
-                    >
+                    <button onClick={handleCancelEdit} className="text-xs text-gray-400 hover:text-gray-600 font-medium">
                       Cancel
                     </button>
                   </div>
-
                   <div className="flex flex-col gap-4">
                     <div className="grid grid-cols-2 gap-3">
                       <Field label="Phone"      name="phone"     value={form.phone}     onChange={handleFormChange} placeholder="+353..." />
@@ -357,20 +422,17 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
                       placeholder="Maths, English, Chemistry"
                     />
                     <Field label="Goals" name="goals" value={form.goals} onChange={handleFormChange} type="textarea" placeholder="What is this student working towards?" />
-
                     <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-3">
                       <p className="text-xs font-bold text-gray-600">👨‍👩‍👧 Parent / Guardian</p>
                       <Field label="Name"  name="parentName"  value={form.parentName}  onChange={handleFormChange} />
                       <Field label="Email" name="parentEmail" value={form.parentEmail} onChange={handleFormChange} type="email" />
                       <Field label="Phone" name="parentPhone" value={form.parentPhone} onChange={handleFormChange} />
                     </div>
-
                     {profileFlash && (
                       <p className={`text-xs font-medium ${profileFlash.includes('Failed') ? 'text-red-500' : 'text-green-600'}`}>
                         {profileFlash}
                       </p>
                     )}
-
                     <div className="flex gap-2">
                       <button
                         onClick={handleSaveProfile}
@@ -392,6 +454,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
             </>
           )}
 
+          {/* ── SESSIONS TAB ── */}
           {tab === 'sessions' && (
             <section>
               <div className="grid grid-cols-3 gap-3 mb-5">
@@ -454,7 +517,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
   )
 }
 
-// ─── Main Students Page ────────────────────────────────────────────────────────
+// ─── Main Students Page ───────────────────────────────────────────────────────
 const Students = () => {
   const { token } = useAuth()
   const authHeader = token ? { headers: { Authorization: `Bearer ${token}` } } : {}
@@ -466,9 +529,12 @@ const Students = () => {
   const [filterSubject, setFilterSubject] = useState('all')
   const [filterStage, setFilterStage]     = useState('all')
   const [selected, setSelected]           = useState(null)
+  const [pageTab, setPageTab]             = useState('overview')
 
-  // ── Page-level tab: 'overview' | 'students' ──────────────────────────────────
-  const [pageTab, setPageTab] = useState('overview')
+  // ── Analytics state ───────────────────────────────────────────────────────
+  const [analytics, setAnalytics]               = useState(null)
+  const [loadingAnalytics, setLoadingAnalytics] = useState(true)
+  const [analyticsError, setAnalyticsError]     = useState('')
 
   const fetchStudents = async () => {
     try {
@@ -482,7 +548,22 @@ const Students = () => {
     }
   }
 
-  useEffect(() => { fetchStudents() }, [])
+  const fetchAnalytics = async () => {
+    try {
+      setLoadingAnalytics(true)
+      const res = await axios.get(`${API}/api/students/analytics`, authHeader)
+      setAnalytics(res.data)
+    } catch {
+      setAnalyticsError('Failed to load analytics')
+    } finally {
+      setLoadingAnalytics(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchStudents()
+    fetchAnalytics()
+  }, [])
 
   const handleProgressUpdate = (studentId, newStage) => {
     setStudents(prev => prev.map(s => s._id === studentId ? { ...s, progressStage: newStage } : s))
@@ -499,7 +580,7 @@ const Students = () => {
     try {
       await axios.patch(`${API}/api/students/${studentId}/progress`, { progressStage: newStage }, authHeader)
       handleProgressUpdate(studentId, newStage)
-    } catch { /* modal has its own feedback */ }
+    } catch { }
   }
 
   const allSubjects = [...new Set(students.flatMap(s => s.subjects || []))].sort()
@@ -512,7 +593,7 @@ const Students = () => {
     return matchSearch && matchSubject && matchStage
   })
 
-  // ── Overview computed stats ───────────────────────────────────────────────────
+  // ── Overview stats derived from students list ─────────────────────────────
   const totalBooked  = students.reduce((acc, s) => acc + (s.sessionStats?.booked    ?? 0), 0)
   const totalDone    = students.reduce((acc, s) => acc + (s.sessionStats?.completed ?? 0), 0)
   const totalNoShow  = students.reduce((acc, s) => acc + (s.sessionStats?.noShow    ?? 0), 0)
@@ -534,11 +615,29 @@ const Students = () => {
     .filter(s => (s.sessionStats?.noShow ?? 0) > 0)
     .sort((a, b) => (b.sessionStats?.noShow ?? 0) - (a.sessionStats?.noShow ?? 0))
 
+  // ── Derived from analytics ─────────────────────────────────────────────────
+  // Format "2024-03" → "Mar 24"
+  const fmtMonth = (key) => {
+    const [y, m] = key.split('-')
+    return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m,10)-1]} ${y.slice(2)}`
+  }
+
+  // Busiest day (from analytics)
+  const busiestDay = analytics?.sessionsByDay
+    ?.reduce((best, d) => d.count > (best?.count ?? -1) ? d : best, null)
+
+  // Busiest hour (from analytics)
+  const busiestHour = analytics?.sessionsByHour
+    ?.reduce((best, d) => d.count > (best?.count ?? -1) ? d : best, null)
+
+  // Last 6 months only for trend charts
+  const last6Months = (arr = []) => arr.slice(-6)
+
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-6xl mx-auto">
 
-        {/* ── Page Header ── */}
+        {/* Page Header */}
         <div className="mb-6 text-center">
           <h1 className="text-4xl font-extrabold text-gray-800 mb-2">👨‍🎓 Students</h1>
           <p className="text-gray-500 text-sm">
@@ -546,11 +645,11 @@ const Students = () => {
           </p>
         </div>
 
-        {/* ── Page-level Tabs ── */}
+        {/* Page-level Tabs */}
         <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 mb-8 shadow-sm max-w-sm mx-auto">
           {[
-            { key: 'overview',  label: '📊 Overview'  },
-            { key: 'students',  label: '🎓 Students'  },
+            { key: 'overview', label: '📊 Overview' },
+            { key: 'students', label: '🎓 Students' },
           ].map(({ key, label }) => (
             <button
               key={key}
@@ -572,25 +671,31 @@ const Students = () => {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════════
+        {/* ══════════════════════════════════════════════════════════════════
             OVERVIEW TAB
-        ══════════════════════════════════════════════════════════════════════ */}
+        ══════════════════════════════════════════════════════════════════ */}
         {pageTab === 'overview' && (
           <>
-            {loading ? (
+            {loading || loadingAnalytics ? (
               <div className="text-center py-24 text-gray-400">
                 <div className="text-5xl mb-3">⏳</div>
                 <p>Loading…</p>
               </div>
             ) : (
               <>
+                {analyticsError && (
+                  <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm text-center">
+                    {analyticsError}
+                  </div>
+                )}
+
                 {/* ── Hero stat cards ── */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
                   {[
-                    { icon: '👨‍🎓', label: 'Total Students',      val: students.length, bg: 'bg-blue-50',   num: 'text-blue-700'   },
-                    { icon: '📅', label: 'Upcoming Sessions',    val: totalBooked,     bg: 'bg-indigo-50', num: 'text-indigo-700' },
-                    { icon: '✅', label: 'Completed Sessions',   val: totalDone,       bg: 'bg-green-50',  num: 'text-green-700'  },
-                    { icon: '🚫', label: 'Total No-Shows',       val: totalNoShow,     bg: 'bg-red-50',    num: 'text-red-500'    },
+                    { icon: '👨‍🎓', label: 'Total Students',    val: students.length,                   bg: 'bg-blue-50',   num: 'text-blue-700'   },
+                    { icon: '🕐', label: 'Total Hours Taught', val: analytics?.totalHours ?? '—',        bg: 'bg-amber-50',  num: 'text-amber-600'  },
+                    { icon: '✅', label: 'Sessions Completed', val: analytics?.completedCount ?? totalDone, bg: 'bg-green-50',  num: 'text-green-700'  },
+                    { icon: '🚫', label: 'Total No-Shows',     val: analytics?.noShowCount  ?? totalNoShow, bg: 'bg-red-50',    num: 'text-red-500'    },
                   ].map(({ icon, label, val, bg, num }) => (
                     <div key={label} className={`rounded-2xl p-5 text-center ${bg} border border-white shadow-sm`}>
                       <p className="text-2xl mb-1">{icon}</p>
@@ -600,12 +705,139 @@ const Students = () => {
                   ))}
                 </div>
 
-                {/* ── Breakdown panels ── */}
+                {/* ── Completion rate + quick insights row ── */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+
+                  {/* Completion rate */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col justify-center">
+                    <p className="text-sm font-bold text-gray-700 mb-2">🎯 Completion Rate</p>
+                    {analytics?.completionRate != null ? (
+                      <>
+                        <p className={`text-4xl font-extrabold mb-2 ${
+                          analytics.completionRate >= 80 ? 'text-green-600' :
+                          analytics.completionRate >= 50 ? 'text-yellow-500' : 'text-red-500'
+                        }`}>
+                          {analytics.completionRate}%
+                        </p>
+                        <div className="w-full bg-gray-100 rounded-full h-2 mb-2">
+                          <div
+                            className={`h-2 rounded-full transition-all duration-700 ${
+                              analytics.completionRate >= 80 ? 'bg-green-500' :
+                              analytics.completionRate >= 50 ? 'bg-yellow-400' : 'bg-red-400'
+                            }`}
+                            style={{ width: `${analytics.completionRate}%` }}
+                          />
+                        </div>
+                        <p className="text-xs text-gray-400">
+                          {analytics.completedCount} completed · {analytics.noShowCount} no-show{analytics.noShowCount !== 1 ? 's' : ''}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-400">No decided sessions yet</p>
+                    )}
+                  </div>
+
+                  {/* Busiest day */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col justify-center">
+                    <p className="text-sm font-bold text-gray-700 mb-2">📆 Busiest Day</p>
+                    {busiestDay && busiestDay.count > 0 ? (
+                      <>
+                        <p className="text-3xl font-extrabold text-blue-700 mb-1">{busiestDay.day}</p>
+                        <p className="text-xs text-gray-400">{busiestDay.count} session{busiestDay.count !== 1 ? 's' : ''} booked</p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-400">No data yet</p>
+                    )}
+                  </div>
+
+                  {/* Busiest time */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col justify-center">
+                    <p className="text-sm font-bold text-gray-700 mb-2">🕑 Busiest Time</p>
+                    {busiestHour && busiestHour.count > 0 ? (
+                      <>
+                        <p className="text-3xl font-extrabold text-violet-700 mb-1">{busiestHour.label}</p>
+                        <p className="text-xs text-gray-400">{busiestHour.count} session{busiestHour.count !== 1 ? 's' : ''} at this hour</p>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-400">No data yet</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Chart row: Sessions by day + Sessions by hour ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
-                  {/* Progress stage breakdown */}
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                    <h2 className="text-base font-bold text-gray-700 mb-5">📈 Progress Breakdown</h2>
+                    <h2 className="text-base font-bold text-gray-700 mb-5">📅 Sessions by Day of Week</h2>
+                    {(analytics?.sessionsByDay ?? []).every(d => d.count === 0) ? (
+                      <p className="text-sm text-gray-400 text-center py-6">No session data yet</p>
+                    ) : (
+                      <BarChart
+                        data={analytics.sessionsByDay}
+                        labelKey="day"
+                        countKey="count"
+                        barColour="bg-blue-500"
+                        labelShort={d => d.day.slice(0, 3)}
+                      />
+                    )}
+                  </div>
+
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                    <h2 className="text-base font-bold text-gray-700 mb-5">🕐 Sessions by Time of Day</h2>
+                    {(analytics?.sessionsByHour ?? []).length === 0 ? (
+                      <p className="text-sm text-gray-400 text-center py-6">No session data yet</p>
+                    ) : (
+                      <BarChart
+                        data={analytics.sessionsByHour}
+                        labelKey="label"
+                        countKey="count"
+                        barColour="bg-violet-500"
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Trend row: Completed sessions by month + New students by month ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                    <h2 className="text-base font-bold text-gray-700 mb-1">📈 Completed Sessions by Month</h2>
+                    <p className="text-xs text-gray-400 mb-5">Last 6 months</p>
+                    {(analytics?.sessionsByMonth ?? []).length === 0 ? (
+                      <p className="text-sm text-gray-400 text-center py-6">No completed sessions yet</p>
+                    ) : (
+                      <BarChart
+                        data={last6Months(analytics.sessionsByMonth)}
+                        labelKey="month"
+                        countKey="count"
+                        barColour="bg-green-500"
+                        labelShort={d => fmtMonth(d.month)}
+                      />
+                    )}
+                  </div>
+
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                    <h2 className="text-base font-bold text-gray-700 mb-1">🆕 New Students by Month</h2>
+                    <p className="text-xs text-gray-400 mb-5">Last 6 months</p>
+                    {(analytics?.newStudentsByMonth ?? []).length === 0 ? (
+                      <p className="text-sm text-gray-400 text-center py-6">No student data yet</p>
+                    ) : (
+                      <BarChart
+                        data={last6Months(analytics.newStudentsByMonth)}
+                        labelKey="month"
+                        countKey="count"
+                        barColour="bg-teal-500"
+                        labelShort={d => fmtMonth(d.month)}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* ── Progress & Subject breakdown ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                    <h2 className="text-base font-bold text-gray-700 mb-5">📊 Progress Breakdown</h2>
                     {students.length === 0 ? (
                       <p className="text-sm text-gray-400 text-center py-6">No students yet</p>
                     ) : (
@@ -618,7 +850,7 @@ const Students = () => {
                             <div className="flex-1 bg-gray-100 rounded-full h-2">
                               <div
                                 className="bg-blue-500 h-2 rounded-full transition-all duration-500"
-                                style={{ width: `${(s.count / students.length) * 100}%` }}
+                                style={{ width: `${students.length ? (s.count / students.length) * 100 : 0}%` }}
                               />
                             </div>
                             <span className="text-sm font-bold text-gray-700 w-5 text-right shrink-0">
@@ -630,7 +862,6 @@ const Students = () => {
                     )}
                   </div>
 
-                  {/* Subject breakdown */}
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                     <h2 className="text-base font-bold text-gray-700 mb-5">📚 Subject Breakdown</h2>
                     {subjectBreakdown.length === 0 ? (
@@ -645,7 +876,7 @@ const Students = () => {
                             <div className="flex-1 bg-gray-100 rounded-full h-2">
                               <div
                                 className="bg-violet-400 h-2 rounded-full transition-all duration-500"
-                                style={{ width: `${(count / students.length) * 100}%` }}
+                                style={{ width: `${students.length ? (count / students.length) * 100 : 0}%` }}
                               />
                             </div>
                             <span className="text-sm font-bold text-gray-700 w-5 text-right shrink-0">
@@ -666,7 +897,7 @@ const Students = () => {
                       {noShowStudents.map(s => (
                         <div
                           key={s._id}
-                          onClick={() => { setSelected(s); }}
+                          onClick={() => setSelected(s)}
                           className="flex items-center justify-between px-4 py-3 bg-red-50 rounded-xl border border-red-100 cursor-pointer hover:bg-red-100 transition group"
                         >
                           <div className="min-w-0">
@@ -684,7 +915,6 @@ const Students = () => {
                   </div>
                 )}
 
-                {/* Empty state */}
                 {students.length === 0 && (
                   <div className="text-center py-24 bg-white rounded-2xl border border-gray-100 shadow-sm text-gray-400">
                     <div className="text-5xl mb-3">🎒</div>
@@ -696,12 +926,11 @@ const Students = () => {
           </>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════════
+        {/* ══════════════════════════════════════════════════════════════════
             STUDENTS TAB
-        ══════════════════════════════════════════════════════════════════════ */}
+        ══════════════════════════════════════════════════════════════════ */}
         {pageTab === 'students' && (
           <>
-            {/* Search & Filters */}
             <div className="flex flex-col sm:flex-row gap-3 mb-8">
               <input
                 type="text"
@@ -807,7 +1036,9 @@ const Students = () => {
 
                       <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between text-xs text-gray-400">
                         <span>{student.school || student.yearGroup || '—'}</span>
-                        <span className="text-blue-500 font-medium group-hover:underline">View details →</span>
+                        <span className="text-blue-500 font-medium group-hover:underline">
+                          View
+                        </span>
                       </div>
                     </div>
                   )

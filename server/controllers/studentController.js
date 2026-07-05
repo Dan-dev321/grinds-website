@@ -3,7 +3,6 @@ const Availability = require('../models/Availability')
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/students/me  (student auth)
-// Returns the logged-in student's own profile + their tutor's info
 // ─────────────────────────────────────────────────────────────────────────────
 const getMe = async (req, res) => {
   try {
@@ -38,7 +37,6 @@ const getMe = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/sessions/mine  (student auth)
-// Returns all sessions booked by this student
 // ─────────────────────────────────────────────────────────────────────────────
 const getMySessions = async (req, res) => {
   try {
@@ -55,7 +53,6 @@ const getMySessions = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/students  (tutor auth)
-// Returns all students belonging to this tutor, each with aggregated session stats
 // ─────────────────────────────────────────────────────────────────────────────
 const getTutorStudents = async (req, res) => {
   try {
@@ -65,13 +62,11 @@ const getTutorStudents = async (req, res) => {
 
     const studentIds = students.map(s => s._id)
 
-    // Pull all booked slots for these students in one query
     const allSessions = await Availability.find({
       bookedBy: { $in: studentIds },
       slotType: 'booked',
     }).select('bookedBy status')
 
-    // Build a stats map: { studentId -> { booked, completed, noShow } }
     const statsMap = {}
     for (const s of allSessions) {
       const id = s.bookedBy.toString()
@@ -96,7 +91,7 @@ const getTutorStudents = async (req, res) => {
       parentPhone:   s.parentPhone,
       progressStage: s.progressStage || 'just-started',
       createdAt:     s.createdAt,
-      sessionStats: statsMap[s._id.toString()] ?? { booked: 0, completed: 0, noShow: 0 },
+      sessionStats:  statsMap[s._id.toString()] ?? { booked: 0, completed: 0, noShow: 0 },
     }))
 
     res.json(result)
@@ -108,11 +103,9 @@ const getTutorStudents = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/students/:id/sessions  (tutor auth)
-// Returns the session history for one specific student (must belong to this tutor)
 // ─────────────────────────────────────────────────────────────────────────────
 const getStudentSessions = async (req, res) => {
   try {
-    // Guard: confirm this student belongs to the requesting tutor
     const student = await Student.findOne({ _id: req.params.id, tutorId: req.user._id })
     if (!student) return res.status(404).json({ message: 'Student not found' })
 
@@ -121,7 +114,7 @@ const getStudentSessions = async (req, res) => {
       slotType: 'booked',
     })
       .select('date dayOfWeek startTime endTime status lessonLength')
-      .sort({ date: -1 }) // most recent first in the modal
+      .sort({ date: -1 })
 
     res.json(sessions)
   } catch (err) {
@@ -132,7 +125,6 @@ const getStudentSessions = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PATCH /api/students/:id/progress  (tutor auth)
-// Updates the progressStage field on a student
 // ─────────────────────────────────────────────────────────────────────────────
 const VALID_STAGES = [
   'just-started',
@@ -168,7 +160,6 @@ const updateStudentProgress = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PATCH /api/students/:id/profile  (tutor auth)
-// Updates editable profile fields — name and email are intentionally excluded
 // ─────────────────────────────────────────────────────────────────────────────
 const ALLOWED_PROFILE_FIELDS = [
   'phone', 'school', 'yearGroup', 'subjects',
@@ -178,7 +169,6 @@ const ALLOWED_PROFILE_FIELDS = [
 
 const updateStudentProfile = async (req, res) => {
   try {
-    // Strip any fields not in the allow-list (name, email, password stay untouched)
     const update = {}
     for (const key of ALLOWED_PROFILE_FIELDS) {
       if (req.body[key] !== undefined) update[key] = req.body[key]
@@ -210,6 +200,98 @@ const updateStudentProfile = async (req, res) => {
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GET /api/students/analytics  (tutor auth)
+// Returns aggregate data for the tutor's Overview analytics panel
+// ─────────────────────────────────────────────────────────────────────────────
+const getStudentAnalytics = async (req, res) => {
+  try {
+    const students = await Student.find({ tutorId: req.user._id, isActive: true })
+      .select('_id createdAt')
+
+    const studentIds = students.map(s => s._id)
+
+    const sessions = await Availability.find({
+      bookedBy: { $in: studentIds },
+      slotType: 'booked',
+    }).select('date dayOfWeek startTime status lessonLength')
+
+    // ── Hours taught ──────────────────────────────────────────────────────────
+    const totalMinutes = sessions
+      .filter(s => s.status === 'completed')
+      .reduce((acc, s) => acc + (s.lessonLength ?? 60), 0)
+
+    // ── Completion rate ───────────────────────────────────────────────────────
+    const decided        = sessions.filter(s => s.status !== 'upcoming')
+    const completedCount = decided.filter(s => s.status === 'completed').length
+    const completionRate = decided.length
+      ? Math.round((completedCount / decided.length) * 100)
+      : null
+
+    // ── Sessions per day of week ──────────────────────────────────────────────
+    const DAYS   = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+    const dayMap = Object.fromEntries(DAYS.map(d => [d, 0]))
+    for (const s of sessions) {
+      if (s.dayOfWeek && dayMap[s.dayOfWeek] !== undefined) dayMap[s.dayOfWeek]++
+    }
+    const sessionsByDay = DAYS.map(d => ({ day: d, count: dayMap[d] }))
+
+    // ── Sessions per hour bucket ──────────────────────────────────────────────
+    const hourMap = {}
+    for (const s of sessions) {
+      if (!s.startTime) continue
+      const hour = parseInt(s.startTime.split(':')[0], 10)
+      if (isNaN(hour)) continue
+      hourMap[hour] = (hourMap[hour] ?? 0) + 1
+    }
+    const sessionsByHour = Object.entries(hourMap)
+      .map(([hour, count]) => ({
+        hour:  parseInt(hour, 10),
+        label: `${hour.toString().padStart(2, '0')}:00`,
+        count,
+      }))
+      .sort((a, b) => a.hour - b.hour)
+
+    // ── Completed sessions by month ───────────────────────────────────────────
+    const monthMap = {}
+    for (const s of sessions.filter(s => s.status === 'completed')) {
+      const [year, month] = s.date.split('-')
+      const key = `${year}-${month}`
+      monthMap[key] = (monthMap[key] ?? 0) + 1
+    }
+    const sessionsByMonth = Object.entries(monthMap)
+      .map(([key, count]) => ({ month: key, count }))
+      .sort((a, b) => a.month.localeCompare(b.month))
+
+    // ── New students by month ─────────────────────────────────────────────────
+    const newStudentMap = {}
+    for (const s of students) {
+      const d   = new Date(s.createdAt)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      newStudentMap[key] = (newStudentMap[key] ?? 0) + 1
+    }
+    const newStudentsByMonth = Object.entries(newStudentMap)
+      .map(([key, count]) => ({ month: key, count }))
+      .sort((a, b) => a.month.localeCompare(b.month))
+
+    res.json({
+      totalMinutes,
+      totalHours:      +(totalMinutes / 60).toFixed(1),
+      completionRate,
+      totalSessions:   sessions.length,
+      completedCount,
+      noShowCount:     decided.length - completedCount,
+      sessionsByDay,
+      sessionsByHour,
+      sessionsByMonth,
+      newStudentsByMonth,
+    })
+  } catch (err) {
+    console.error('getStudentAnalytics error:', err)
+    res.status(500).json({ message: 'Server error' })
+  }
+}
+
 module.exports = {
   getMe,
   getMySessions,
@@ -217,4 +299,5 @@ module.exports = {
   getStudentSessions,
   updateStudentProgress,
   updateStudentProfile,
+  getStudentAnalytics,
 }
