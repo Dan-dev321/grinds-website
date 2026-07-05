@@ -8,11 +8,8 @@ const { sendEmail } = require('../services/emailService')
 const { paymentReceipt } = require('../emails/templates/paymentReceipt')
 const { paymentFailed } = require('../emails/templates/paymentFailed')
 
-
-
 // ─────────────────────────────────────────────
 // PRICE MAP
-// Maps plan name → your Stripe Price ID
 // ─────────────────────────────────────────────
 const PRICE_MAP = {
   monthly:   process.env.STRIPE_PRICE_MONTHLY,
@@ -22,7 +19,6 @@ const PRICE_MAP = {
 
 // ─────────────────────────────────────────────
 // POST /api/stripe/checkout
-// Creates a Stripe Checkout session for the chosen plan
 // ─────────────────────────────────────────────
 router.post('/checkout', protect, async (req, res) => {
   try {
@@ -36,7 +32,7 @@ router.post('/checkout', protect, async (req, res) => {
     if (!tutor) return res.status(404).json({ message: 'Tutor not found.' })
 
     // Reuse existing Stripe customer or create a new one
-    let customerId = tutor.subscription.stripeCustomerId
+    let customerId = tutor.subscription?.stripeCustomerId
 
     if (!customerId) {
       const customer = await stripe.customers.create({
@@ -45,8 +41,12 @@ router.post('/checkout', protect, async (req, res) => {
         metadata: { tutorId: tutor._id.toString() },
       })
       customerId = customer.id
-      tutor.subscription.stripeCustomerId = customerId
-      await tutor.save()
+
+      // ✅ Use updateOne to avoid full document validation on trial_expired status
+      await Tutor.updateOne(
+        { _id: tutor._id },
+        { $set: { 'subscription.stripeCustomerId': customerId } }
+      )
     }
 
     // Build the Checkout session
@@ -71,8 +71,6 @@ router.post('/checkout', protect, async (req, res) => {
 
 // ─────────────────────────────────────────────
 // POST /api/stripe/portal
-// Redirects tutor to Stripe Customer Portal
-// (manage/cancel their own subscription)
 // ─────────────────────────────────────────────
 router.post('/portal', protect, async (req, res) => {
   try {
@@ -96,8 +94,6 @@ router.post('/portal', protect, async (req, res) => {
 
 // ─────────────────────────────────────────────
 // GET /api/stripe/status
-// Returns current subscription status for the
-// logged-in tutor (used by frontend guards)
 // ─────────────────────────────────────────────
 router.get('/status', protect, async (req, res) => {
   try {
@@ -123,12 +119,10 @@ router.get('/status', protect, async (req, res) => {
 
 // ─────────────────────────────────────────────
 // POST /api/stripe/webhook
-// Stripe sends events here — MUST use raw body
-// Register this route BEFORE express.json()
 // ─────────────────────────────────────────────
 router.post(
   '/webhook',
-  express.raw({ type: 'application/json' }), // raw body required for signature verification
+  express.raw({ type: 'application/json' }),
   async (req, res) => {
     const sig = req.headers['stripe-signature']
     let event
@@ -144,14 +138,12 @@ router.post(
       return res.status(400).send(`Webhook Error: ${err.message}`)
     }
 
-    // ── Helper: find tutor by Stripe customer ID ──
     const findTutor = async (customerId) =>
       Tutor.findOne({ 'subscription.stripeCustomerId': customerId })
 
     try {
       switch (event.type) {
 
-        // ── Checkout completed → activate subscription ──
         case 'checkout.session.completed': {
           const session = event.data.object
           if (session.mode !== 'subscription') break
@@ -162,23 +154,28 @@ router.post(
           const sub = await stripe.subscriptions.retrieve(session.subscription)
           const plan = sub.metadata?.plan || null
 
-          tutor.subscription.stripeSubscriptionId = session.subscription
-          tutor.subscription.status = 'active'
-          tutor.subscription.plan   = plan
-          tutor.subscription.trialEnds = null
-          await tutor.save()
+          // ✅ Use updateOne to avoid enum validation issues
+          await Tutor.updateOne(
+            { _id: tutor._id },
+            {
+              $set: {
+                'subscription.stripeSubscriptionId': session.subscription,
+                'subscription.status': 'active',
+                'subscription.plan':   plan,
+                'subscription.trialEnds': null,
+              }
+            }
+          )
 
           console.log(`✅ Subscription activated for tutor ${tutor.email}`)
           break
         }
 
-        // ── Subscription updated (plan change, renewal) ──
         case 'customer.subscription.updated': {
-          const sub = await event.data.object
+          const sub = event.data.object
           const tutor = await findTutor(sub.customer)
           if (!tutor) break
 
-          // Map Stripe status → our status
           const statusMap = {
             active:   'active',
             past_due: 'past_due',
@@ -186,27 +183,31 @@ router.post(
             trialing: 'trial',
           }
 
-          tutor.subscription.status = statusMap[sub.status] ?? tutor.subscription.status
-          await tutor.save()
+          const newStatus = statusMap[sub.status] ?? tutor.subscription.status
+
+          await Tutor.updateOne(
+            { _id: tutor._id },
+            { $set: { 'subscription.status': newStatus } }
+          )
 
           console.log(`🔄 Subscription updated for tutor ${tutor.email}: ${sub.status}`)
           break
         }
 
-        // ── Subscription deleted/cancelled ──
         case 'customer.subscription.deleted': {
           const sub = event.data.object
           const tutor = await findTutor(sub.customer)
           if (!tutor) break
 
-          tutor.subscription.status = 'cancelled'
-          await tutor.save()
+          await Tutor.updateOne(
+            { _id: tutor._id },
+            { $set: { 'subscription.status': 'cancelled' } }
+          )
 
           console.log(`❌ Subscription cancelled for tutor ${tutor.email}`)
           break
         }
 
-        // ── Payment succeeded → send receipt ──
         case 'invoice.payment_succeeded': {
           const invoice = event.data.object
           const tutor = await findTutor(invoice.customer)
@@ -226,15 +227,16 @@ router.post(
           console.log(`💰 Payment succeeded for tutor ${tutor.email}`)
           break
         }
-        
-        // ── Payment failed → flag as past_due ──
+
         case 'invoice.payment_failed': {
           const invoice = event.data.object
           const tutor = await findTutor(invoice.customer)
           if (!tutor) break
 
-          tutor.subscription.status = 'past_due'
-          await tutor.save()
+          await Tutor.updateOne(
+            { _id: tutor._id },
+            { $set: { 'subscription.status': 'past_due' } }
+          )
 
           const { subject, html } = paymentFailed({
             name: tutor.name,
@@ -249,12 +251,10 @@ router.post(
         }
 
         default:
-          // Unhandled event — safe to ignore
           break
       }
     } catch (err) {
       console.error('Webhook handler error:', err)
-      // Still return 200 so Stripe doesn't retry endlessly
     }
 
     res.json({ received: true })

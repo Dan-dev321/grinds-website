@@ -10,11 +10,15 @@ const tutorSchema = new mongoose.Schema({
 
   // Subscription
   subscription: {
-    status:               { type: String, enum: ['trial', 'active', 'past_due', 'cancelled'], default: 'trial' },
-    trialEnds:            { type: Date },
-    stripeCustomerId:     { type: String },
-    stripeSubscriptionId: { type: String },
-    plan:                 { type: String, enum: ['monthly', 'quarterly', 'yearly', null], default: null },
+    status: {
+      type: String,
+      enum: ['trial', 'active', 'past_due', 'cancelled', 'trial_expired'], // ✅ added trial_expired
+      default: 'trial'
+    },
+    trialEnds:             { type: Date },
+    stripeCustomerId:      { type: String },
+    stripeSubscriptionId:  { type: String },
+    plan:                  { type: String, enum: ['monthly', 'quarterly', 'yearly', null], default: null },
     trialReminderSent:     { type: Boolean, default: false },
     trialExpiredEmailSent: { type: Boolean, default: false },
   },
