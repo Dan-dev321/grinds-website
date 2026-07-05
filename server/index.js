@@ -27,13 +27,18 @@ app.use(cors({
 }))
 
 // ========================
-// ⚡ STRIPE WEBHOOK — must be before express.json()
+// ⚡ STRIPE WEBHOOK — raw body, must come before express.json()
+// Only the /webhook route uses express.raw(), registered inside stripeRoutes.js
+// We mount the express.raw() parser here for ONLY the webhook path
 // ========================
-const stripeRoutes = require('./routes/stripeRoutes')
-app.use('/api/stripe', stripeRoutes)
+app.use(
+  '/api/stripe/webhook',
+  express.raw({ type: 'application/json' })
+)
 
 // ========================
 // MIDDLEWARE
+// express.json() must come BEFORE all other routes
 // ========================
 app.use(express.json())
 
@@ -41,6 +46,7 @@ app.use(express.json())
 // ROUTES
 // ========================
 const authRoutes         = require('./routes/authRoutes')
+const stripeRoutes       = require('./routes/stripeRoutes')
 const availabilityRoutes = require('./routes/availabilityRoutes')
 const ownerRoutes        = require('./routes/ownerRoutes')
 const noteRoutes         = require('./routes/noteRoutes')
@@ -50,13 +56,14 @@ const cronRoutes         = require('./routes/cronRoutes')
 const topicRoutes        = require('./routes/topicRoutes')
 
 app.use('/api/auth',         authRoutes)
+app.use('/api/stripe',       stripeRoutes)
 app.use('/api/availability', availabilityRoutes)
 app.use('/api/owner',        ownerRoutes)
 app.use('/api/notes',        noteRoutes)
 app.use('/api/students',     studentRoutes)
 app.use('/api/sessions',     sessionRoutes)
 app.use('/api/cron',         cronRoutes)
-app.use('/api/topics',      topicRoutes)
+app.use('/api/topics',       topicRoutes)
 
 // ========================
 // HEALTH CHECK
@@ -65,7 +72,7 @@ app.get('/', (req, res) => res.send('TutorNode server running ✅'))
 app.get('/health', (req, res) => res.json({ status: 'ok' }))
 
 // ========================
-// DATANode
+// DATABASE
 // ========================
 mongoose.connect(process.env.MONGO_URI, { family: 4 })
   .then(() => console.log('MongoDB Connected ✅'))
