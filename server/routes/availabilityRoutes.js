@@ -35,6 +35,7 @@ router.post('/manual-booking',   protect, tutorOnly,   requireSubscription, addM
 router.post('/copy-day',         protect, tutorOnly,   requireSubscription, copyDay)
 router.post('/recurring',        protect, tutorOnly,   requireSubscription, repeatWeekly)
 router.post('/book',             protect, studentOnly, requireSubscription, bookSlot)
+router.put('/:id/note',          protect, studentOnly, updateStudentNote)
 router.put('/:id/unbook',        protect,              requireSubscription, unbookSlot)
 router.delete('/:id',            protect, tutorOnly,   requireSubscription, deleteSlot)
 

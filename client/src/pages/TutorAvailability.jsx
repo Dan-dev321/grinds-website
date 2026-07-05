@@ -497,9 +497,21 @@ const TutorAvailability = () => {
                                 </p>
                               )}
                               {startingSlot.slotType === 'booked' && contact && (
-                                <p className="text-xs leading-tight truncate opacity-80">
-                                  {contact.name}{startingSlot.isManualBooking ? ' (manual)' : ''}
-                                </p>
+                                <div className="flex items-center gap-1">
+                                  <p className="text-xs leading-tight truncate opacity-80">
+                                    {contact.name}
+                                    {startingSlot.isManualBooking ? ' (manual)' : ''}
+                                  </p>
+
+                                  {startingSlot.studentNote && (
+                                    <span
+                                      title={startingSlot.studentNote}
+                                      className="text-xs cursor-help"
+                                    >
+                                      📝
+                                    </span>
+                                  )}
+                                </div>
                               )}
                               {startingSlot.slotType === 'buffer' && (
                                 <p className="text-xs leading-tight opacity-60">buffer</p>

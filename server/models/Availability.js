@@ -35,6 +35,7 @@ const availabilitySchema = new mongoose.Schema({
   // via the calendar and arranged the lesson by text/in person). In this
   // case there's no Student account to link, so bookedBy stays null and the
   // student's details are stored here instead.
+  studentNote: { type: String, default: '' },
   isManualBooking:    { type: Boolean, default: false },
   manualStudentName:  { type: String, default: null },
   manualStudentEmail: { type: String, default: null },

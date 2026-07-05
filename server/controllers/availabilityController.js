@@ -1,4 +1,6 @@
+const jwt = require('jsonwebtoken')
 const Availability = require('../models/Availability')
+const Student = require('../models/Student')
 
 const { sendEmail } = require('../services/emailService')
 const { bookingConfirmation } = require('../emails/templates/bookingConfirmation')
@@ -35,6 +37,28 @@ const dateStrToObj = (dateStr) => {
   return new Date(y, mo - 1, d)
 }
 
+// Best-effort decode of the Authorization header, without requiring auth.
+// Used by getSlotsByWeek (a public route) to detect a logged-in STUDENT and
+// force their own tutorId — this route can't use the normal `protect`
+// middleware since logged-out visitors and tutors also need to hit it freely.
+const tryGetStudentTutorId = async (req) => {
+  const header = req.headers.authorization
+  if (!header?.startsWith('Bearer ')) return null
+
+  try {
+    const token = header.split(' ')[1]
+    const decoded = jwt.verify(token, process.env.JWT_SECRET)
+    if (decoded.role !== 'student') return null
+
+    const student = await Student.findById(decoded.id).select('tutorId')
+    return student?.tutorId?.toString() || null
+  } catch {
+    // Invalid/expired token on a public route — just treat as logged-out
+    // rather than erroring, since this route doesn't require auth.
+    return null
+  }
+}
+
 // ─── ADD SLOT (Tutor/Admin) ───────────────────────────────────────────────────
 const addSlot = async (req, res) => {
   const { date, startTime, endTime, lessonLength, bufferMinutes } = req.body
@@ -44,7 +68,6 @@ const addSlot = async (req, res) => {
     if (startTime >= endTime)
       return res.status(400).json({ message: 'End time must be after start time' })
 
-    // Default to 60 min lessons / 0 min buffer if not supplied (back-compat)
     const lessonMins = Number.isFinite(lessonLength) ? lessonLength : 60
     const bufferMins  = Number.isFinite(bufferMinutes) ? bufferMinutes : 0
 
@@ -84,11 +107,6 @@ const addSlot = async (req, res) => {
 }
 
 // ─── ADD MANUAL BOOKING (Tutor/Admin) ─────────────────────────────────────────
-// For when a student forgot to book via the calendar (e.g. arranged a lesson
-// by text or in person). Creates a 'booked' slot directly, skipping the
-// available -> bookSlot flow. Since there's no Student account to link,
-// details are stored on manualStudentName/manualStudentEmail instead of
-// bookedBy, and isManualBooking flags it for the UI.
 const addManualBooking = async (req, res) => {
   const { date, startTime, endTime, lessonLength, studentName, studentEmail } = req.body
   try {
@@ -103,8 +121,6 @@ const addManualBooking = async (req, res) => {
 
     const dayOfWeek = getDayOfWeek(date)
 
-    // Same overlap check as addSlot — a manual booking still can't collide
-    // with anything already on the tutor's calendar that day.
     const existing = await Availability.find({ tutor: req.user.id, date })
     const overlap = existing.some(s =>
       startTime < s.endTime && endTime > s.startTime
@@ -134,9 +150,16 @@ const addManualBooking = async (req, res) => {
 }
 
 // ─── GET SLOTS BY WEEK ────────────────────────────────────────────────────────
+// SECURITY NOTE: this route is intentionally public (logged-out visitors can
+// browse a tutor's calendar), so it can't use the `protect` middleware.
+// However, a logged-in STUDENT must never be able to see another tutor's
+// slots — so if the request carries a valid student token, their own
+// tutorId always overrides whatever tutorId (if any) was passed in the query.
+// This closes the gap where a student's frontend simply not sending tutorId
+// (or a modified request omitting it) would leak every tutor's schedule.
 const getSlotsByWeek = async (req, res) => {
   try {
-    const { weekStart, tutorId } = req.query
+    const { weekStart, tutorId: queryTutorId } = req.query
     if (!weekStart)
       return res.status(400).json({ message: 'weekStart query param required' })
 
@@ -146,11 +169,13 @@ const getSlotsByWeek = async (req, res) => {
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
     })
 
-    // tutorId is optional: students browsing all tutors can omit it,
-    // but the tutor's own calendar should always pass its own id so
-    // slots/bookings from other tutors never bleed into its view.
+    const studentTutorId = await tryGetStudentTutorId(req)
+
+    // Student identity always wins over any client-supplied tutorId.
+    const effectiveTutorId = studentTutorId || queryTutorId
+
     const query = { date: { $in: dates } }
-    if (tutorId) query.tutor = tutorId
+    if (effectiveTutorId) query.tutor = effectiveTutorId
 
     const slots = await Availability.find(query)
       .populate('tutor', 'name email')
@@ -205,7 +230,6 @@ const getAllBookings = async (req, res) => {
 }
 
 // ─── CLEANUP STALE SLOTS (Tutor) ─────────────────────────────────────────────
-// Removes any slot belonging to this tutor where date+endTime is >48hrs in the past
 const cleanupStaleSlots = async (req, res) => {
   try {
     const now = new Date()
@@ -234,15 +258,22 @@ const cleanupStaleSlots = async (req, res) => {
 }
 
 // ─── BOOK A SLOT (Student/Parent) ────────────────────────────────────────────
-// Booking duration and buffer size now come from the available slot being
-// booked (slot.lessonLength / slot.bufferMinutes), not hardcoded 60/15.
 const bookSlot = async (req, res) => {
   try {
     const { startTime, date, tutorId } = req.body
     if (!startTime || !date || !tutorId)
       return res.status(400).json({ message: 'startTime, date and tutorId are required' })
 
-    // ── Find the available slot that covers this start time ───────
+    // ── Enforce the student can only book with their own tutor, even if ──
+    // the request body claims a different tutorId (defense in depth,
+    // matching the same protection now applied to getSlotsByWeek).
+    if (req.role === 'student') {
+      const student = await Student.findById(req.user.id).select('tutorId')
+      if (!student?.tutorId || student.tutorId.toString() !== tutorId) {
+        return res.status(403).json({ message: 'You can only book sessions with your own tutor' })
+      }
+    }
+
     const parentSlot = await Availability.findOne({
       date,
       tutor: tutorId,
@@ -267,7 +298,6 @@ const bookSlot = async (req, res) => {
     if (bookEnd > parentEnd)
       return res.status(400).json({ message: 'Not enough time left in this slot for a full lesson' })
 
-    // ── Prevent student booking same time twice ───────────────
     const existingBooking = await Availability.findOne({
       bookedBy: req.user.id,
       date,
@@ -280,7 +310,6 @@ const bookSlot = async (req, res) => {
         message: 'You already have a booking during this time on this date'
       })
     }
-    // ─────────────────────────────────────────────────────────
 
     const tutorIdRef  = parentSlot.tutor
     const dayOfWeek   = parentSlot.dayOfWeek
@@ -290,7 +319,6 @@ const bookSlot = async (req, res) => {
 
     const newDocs = []
 
-    // ── Segment BEFORE (anything ahead of the buffer zone) ────────
     if (bookStart - bufferMins > parentStart) {
       const beforeStart    = parentStart
       const beforeEnd      = bookStart - bufferMins
@@ -307,7 +335,6 @@ const bookSlot = async (req, res) => {
       })
     }
 
-    // ── Buffer BEFORE ────────────────────────────────────────────
     if (bufferMins > 0 && bookStart - bufferMins >= parentStart) {
       newDocs.push({
         tutor: tutorIdRef, date, dayOfWeek,
@@ -321,7 +348,6 @@ const bookSlot = async (req, res) => {
       })
     }
 
-    // ── The BOOKING itself ───────────────────────────────────────
     newDocs.push({
       tutor: tutorIdRef, date, dayOfWeek,
       startTime: toTime(bookStart),
@@ -334,7 +360,6 @@ const bookSlot = async (req, res) => {
       bookedBy: req.user.id
     })
 
-    // ── Buffer AFTER ─────────────────────────────────────────────
     if (bufferMins > 0 && bookEnd + bufferMins <= parentEnd) {
       newDocs.push({
         tutor: tutorIdRef, date, dayOfWeek,
@@ -348,7 +373,6 @@ const bookSlot = async (req, res) => {
       })
     }
 
-    // ── Segment AFTER ────────────────────────────────────────────
     if (bookEnd + bufferMins < parentEnd) {
       const afterStart    = bookEnd + bufferMins
       const afterEnd      = parentEnd
@@ -368,8 +392,6 @@ const bookSlot = async (req, res) => {
     const created   = await Availability.insertMany(newDocs)
     const bookedDoc = created.find(d => d.slotType === 'booked')
 
-    // ── Fire confirmation emails (tutor + student) ────────────────
-    // Populate here since bookedDoc from insertMany only has raw ObjectId refs
     const populatedBooking = await Availability.findById(bookedDoc._id)
       .populate('tutor', 'name email')
       .populate('bookedBy', 'name email')
@@ -429,19 +451,15 @@ const unbookSlot = async (req, res) => {
 
     const { date, parentSlotId, tutor, dayOfWeek, lessonLength, bufferMinutes } = bookedSlot
 
-    // ── Manual bookings have no parentSlotId / carved-out siblings to ──
-    // restore — just remove the booking itself and stop there.
     if (bookedSlot.isManualBooking) {
       await bookedSlot.deleteOne()
       return res.json({ message: 'Manual booking removed ✅' })
     }
 
-    // ── Step 1: gather siblings (buffer slots) sharing the same parentSlotId ──
     const siblings = parentSlotId
       ? await Availability.find({ parentSlotId, date })
       : []
 
-    // ── Step 2: collapse booking + its buffers into a single freed range ──
     const freedDocs = [...siblings, bookedSlot]
     const freedStart = freedDocs.reduce(
       (min, s) => (toMins(s.startTime) < toMins(min) ? s.startTime : min),
@@ -452,13 +470,11 @@ const unbookSlot = async (req, res) => {
       freedDocs[0].endTime
     )
 
-    // ── Step 3: delete siblings + the booking itself ──
     if (parentSlotId) {
       await Availability.deleteMany({ parentSlotId, date })
     }
     await bookedSlot.deleteOne()
 
-    // ── Step 4: gather other available slots for this tutor/date, plus the freed range ──
     const existingAvailable = await Availability.find({
       tutor,
       date,
@@ -470,7 +486,6 @@ const unbookSlot = async (req, res) => {
       { startTime: freedStart, endTime: freedEnd }
     ].sort((a, b) => toMins(a.startTime) - toMins(b.startTime))
 
-    // ── Step 5: merge ALL adjacent/touching ranges ──
     const merged = []
     let current = { startTime: allRanges[0].startTime, endTime: allRanges[0].endTime }
     for (let i = 1; i < allRanges.length; i++) {
@@ -486,9 +501,6 @@ const unbookSlot = async (req, res) => {
     }
     merged.push(current)
 
-    // ── Step 6: replace existing available slots with merged result ──
-    // Re-uses the lessonLength/bufferMinutes that were on the booking, so the
-    // freed range keeps the same settings it was created with.
     await Availability.deleteMany({ tutor, date, slotType: 'available' })
     await Availability.insertMany(
       merged.map(m => ({
@@ -579,8 +591,6 @@ const copyDay = async (req, res) => {
 }
 
 // ─── REPEAT WEEKLY TEMPLATE (Tutor/Admin) ─────────────────────────────────────
-// Clones this week's 'available' slots onto every following week, up to and
-// including untilDate. weekStart is the Monday of the source week.
 const repeatWeekly = async (req, res) => {
   const { weekStart, untilDate } = req.body
   try {
@@ -607,7 +617,7 @@ const repeatWeekly = async (req, res) => {
 
     const created = []
     let weekOffset = 7
-    const MAX_WEEKS = 104 // safety cap (~2 years)
+    const MAX_WEEKS = 104
 
     while (weekOffset / 7 <= MAX_WEEKS) {
       const targetWeekStart = addDaysToDateStr(weekStart, weekOffset)
@@ -620,7 +630,6 @@ const repeatWeekly = async (req, res) => {
         const daySlots = slotsByDate[sourceDates[i]]
         if (!daySlots || daySlots.length === 0) continue
 
-        // Clear existing available/unavailable slots on the target date first
         await Availability.deleteMany({
           tutor: req.user.id,
           date: targetDate,
@@ -658,7 +667,6 @@ const repeatWeekly = async (req, res) => {
 }
 
 // ─── CLEAR A DAY (Tutor/Admin) ────────────────────────────────────────────────
-// Deletes everything on a given date except booked slots.
 const clearDay = async (req, res) => {
   const { date } = req.query
   try {
@@ -672,6 +680,29 @@ const clearDay = async (req, res) => {
     })
 
     res.json({ message: `Cleared ${result.deletedCount} slot(s) on ${date} ✅` })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message })
+  }
+}
+
+// ─── UPDATE STUDENT NOTE ON A BOOKING (Student/Parent) ───────────────────────
+// Lets the student who made a booking leave a short note for the tutor
+// (e.g. "want to focus on quadratics" or "exam prep this week").
+const updateStudentNote = async (req, res) => {
+  try {
+    const { studentNote } = req.body
+    const slot = await Availability.findById(req.params.id)
+
+    if (!slot) return res.status(404).json({ message: 'Booking not found' })
+    if (slot.slotType !== 'booked')
+      return res.status(400).json({ message: 'This slot is not a booking' })
+    if (!slot.bookedBy || slot.bookedBy.toString() !== req.user.id)
+      return res.status(403).json({ message: 'You can only add a note to your own bookings' })
+
+    slot.studentNote = (studentNote || '').slice(0, 500) // simple length guard
+    await slot.save()
+
+    res.json({ message: 'Note saved ✅', studentNote: slot.studentNote })
   } catch (err) {
     res.status(500).json({ message: 'Server error', error: err.message })
   }
@@ -692,4 +723,5 @@ module.exports = {
   cleanupStaleSlots,
   repeatWeekly,
   clearDay,
+  updateStudentNote,
 }

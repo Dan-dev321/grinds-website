@@ -5,16 +5,12 @@ import { useAuth } from '../context/AuthContext'
 
 const API = import.meta.env.VITE_API_URL
 // ─── Constants ────────────────────────────────────────────────────────────────
-// NOTE: working hours here are not yet synced with the tutor's Settings
-// sidebar (that lives in the tutor's own localStorage). If working hours
-// need to match across both pages, that setting should move server-side
-// (e.g. onto the Tutor model) so both pages can read the same source.
 const HOUR_START  = 8
 const HOUR_END    = 22
 const SLOT_MINS   = 15
 const TOTAL_SLOTS = ((HOUR_END - HOUR_START) * 60) / SLOT_MINS
 const CELL_HEIGHT = 16
-const DEFAULT_LESSON_MINS = 60 // fallback for legacy slots with no lessonLength stored
+const DEFAULT_LESSON_MINS = 60
 
 const timeSlots = Array.from({ length: TOTAL_SLOTS }, (_, i) => {
   const totalMins = HOUR_START * 60 + i * SLOT_MINS
@@ -30,13 +26,11 @@ const SLOT_COLOUR = {
   text: '#166534'
 }
 
-// Friendlier labels + colours for non-available slot types
 const STATUS_META = {
   booked: { label: 'Slot Booked',        bg: '#fee2e2', border: '#f87171', text: '#b91c1c' },
   buffer: { label: 'Tutor Unavailable',  bg: '#f1f5f9', border: '#cbd5e1', text: '#64748b' },
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 const toMins  = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
 const toTime  = (m) => `${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`
 
@@ -57,12 +51,86 @@ const formatDisplay = (dateStr) => {
 
 const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
-// ─── Component ────────────────────────────────────────────────────────────────
+const BookingNote = ({ slot, token, onSaved }) => {
+  const [editing, setEditing] = useState(false)
+  const [text, setText]       = useState(slot.studentNote || '')
+  const [saving, setSaving]   = useState(false)
+
+  const handleSave = async () => {
+    try {
+      setSaving(true)
+      await axios.put(
+        `${API}/api/availability/${slot._id}/note`,
+        { studentNote: text },
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      onSaved(slot._id, text)
+      setEditing(false)
+    } catch (err) {
+      console.error('Failed to save note')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (!editing) {
+    return (
+      <div className="mt-2">
+        {slot.studentNote ? (
+          <div className="bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-600 flex items-start justify-between gap-2">
+            <span className="italic">"{slot.studentNote}"</span>
+            <button
+              onClick={() => setEditing(true)}
+              className="text-blue-500 hover:text-blue-700 font-semibold shrink-0"
+            >
+              Edit
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setEditing(true)}
+            className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
+          >
+            📝 Leave a note
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-2 flex flex-col gap-2">
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="e.g. Want to focus on quadratics, or practise for Friday's test"
+        rows={2}
+        maxLength={500}
+        className="text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+      />
+      <div className="flex gap-2">
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="text-xs bg-blue-700 text-white px-3 py-1 rounded-full font-semibold hover:bg-blue-800 transition disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : 'Save note'}
+        </button>
+        <button
+          onClick={() => { setEditing(false); setText(slot.studentNote || '') }}
+          className="text-xs text-gray-400 hover:text-gray-600 font-medium"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
 const StudentAvailability = () => {
   const { user, token } = useAuth()
   const authHeader = token ? { headers: { Authorization: `Bearer ${token}` } } : {}
 
-  // ── Week state ───────────────────────────────────────────────
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()))
   const weekDates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart)
@@ -74,21 +142,18 @@ const StudentAvailability = () => {
   const prevWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate()-7); setWeekStart(d) }
   const nextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate()+7); setWeekStart(d) }
 
-  // ── Data state ───────────────────────────────────────────────
   const [slots, setSlots]           = useState([])
   const [myBookings, setMyBookings] = useState([])
   const [loading, setLoading]       = useState(true)
   const [success, setSuccess]       = useState('')
   const [error, setError]           = useState('')
 
-  // ── Hover state ──────────────────────────────────────────────
   const [hoverDate, setHoverDate] = useState(null)
   const [hoverTime, setHoverTime] = useState(null)
 
   const flashSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3500) }
   const flashError   = (msg) => { setError(msg);   setTimeout(() => setError(''),   3500) }
 
-  // ── Fetch ────────────────────────────────────────────────────
   const fetchSlots = async () => {
     try {
       setLoading(true)
@@ -117,16 +182,12 @@ const StudentAvailability = () => {
     if (user) fetchMyBookings()
   }, [weekStart, user])
 
-  // ── Slot helpers ─────────────────────────────────────────────
   const getSlotsAt = (date, time) =>
     slots.filter(s => s.date === date && time >= s.startTime && time < s.endTime)
 
   const spanCells = (slot) =>
     (toMins(slot.endTime) - toMins(slot.startTime)) / SLOT_MINS
 
-  // ── Check there's enough room left in the available slot for a full lesson ──
-  // Each 'available' document is one continuous span, and now carries its own
-  // lessonLength (set by the tutor in Settings) instead of a hardcoded 60 min.
   const getStudentBlock = (date, startTime) => {
     const covering = getSlotsAt(date, startTime).find(s => s.slotType === 'available')
     if (!covering) return null
@@ -140,7 +201,6 @@ const StudentAvailability = () => {
     return { startTime: toTime(startMins), endTime: toTime(endMins), lessonMins }
   }
 
-  // ── Hover block ───────────────────────────────────────────────
   const getHoverBlock = () => {
     if (!hoverDate || !hoverTime) return null
     const available = getSlotsAt(hoverDate, hoverTime).filter(s => s.slotType === 'available')
@@ -155,13 +215,8 @@ const StudentAvailability = () => {
     setHoverTime(time)
   }
 
-  // ── Book ────────────────────────────────────────────────────────
   const bookSlot = async (date, block) => {
     try {
-      // Find the available slot covering this block to get its tutorId,
-      // since the backend route still requires tutorId in the body.
-      // The backend determines the actual booking length from that slot's
-      // own lessonLength, so we don't need to send duration here.
       const matchingSlot = getSlotsAt(date, block.startTime)
         .find(s => s.slotType === 'available')
       const tutorId = matchingSlot?.tutor?._id?.toString() || matchingSlot?.tutor?.toString()
@@ -178,7 +233,6 @@ const StudentAvailability = () => {
     }
   }
 
-  // ── Click to book ─────────────────────────────────────────────
   const handleStudentClick = async (date, time) => {
     if (!hoverBlock || hoverDate !== date) {
       const fallbackSlot = getSlotsAt(date, time).find(s => s.slotType === 'available')
@@ -189,7 +243,6 @@ const StudentAvailability = () => {
     await bookSlot(date, hoverBlock)
   }
 
-  // ── Unbook ────────────────────────────────────────────────────
   const handleUnbook = async (slotId) => {
     try {
       await axios.put(`${API}/api/availability/${slotId}/unbook`, {}, authHeader)
@@ -201,9 +254,12 @@ const StudentAvailability = () => {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────────────────────
+  const handleNoteSaved = (slotId, newNote) => {
+    setMyBookings(prev => prev.map(s =>
+      s._id === slotId ? { ...s, studentNote: newNote } : s
+    ))
+  }
+
   return (
     <div
       className="min-h-screen bg-gray-50 py-10 px-2 select-none"
@@ -211,7 +267,6 @@ const StudentAvailability = () => {
     >
       <div className="max-w-7xl mx-auto">
 
-        {/* Header */}
         <div className="text-center mb-6">
           <h1 className="text-4xl font-extrabold text-gray-800 mb-2">📅 Availability</h1>
           <p className="text-gray-500 text-sm">
@@ -219,7 +274,6 @@ const StudentAvailability = () => {
           </p>
         </div>
 
-        {/* Flash messages */}
         {success && (
           <div className="mb-4 bg-green-100 border border-green-300 text-green-800 px-4 py-3 rounded-xl text-center font-medium text-sm">
             {success}
@@ -231,7 +285,6 @@ const StudentAvailability = () => {
           </div>
         )}
 
-        {/* Not logged in CTA */}
         {!user && (
           <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-6 text-center">
             <p className="text-blue-800 font-semibold text-lg mb-1">👋 Want to book a session?</p>
@@ -251,7 +304,6 @@ const StudentAvailability = () => {
           </div>
         )}
 
-        {/* Week Navigation */}
         <div className="flex items-center justify-between mb-3 bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-3">
           <button onClick={prevWeek}
             className="text-blue-700 font-bold text-xl hover:text-blue-900 px-2">←</button>
@@ -265,7 +317,6 @@ const StudentAvailability = () => {
             className="text-blue-700 font-bold text-xl hover:text-blue-900 px-2">→</button>
         </div>
 
-        {/* Calendar Grid */}
         {loading ? (
           <div className="text-center py-24 text-gray-400">
             <div className="text-5xl mb-3">⏳</div>
@@ -275,7 +326,6 @@ const StudentAvailability = () => {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-x-auto">
             <div className="min-w-[700px]">
 
-              {/* Day headers */}
               <div className="grid border-b border-gray-100"
                 style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
                 <div className="py-2" />
@@ -297,12 +347,10 @@ const StudentAvailability = () => {
                 ))}
               </div>
 
-              {/* Time rows */}
               {timeSlots.map((time, rowIdx) => (
                 <div key={time} className="grid"
                   style={{ gridTemplateColumns: '52px repeat(7, 1fr)' }}>
 
-                  {/* Time label */}
                   <div className="relative flex items-start justify-end pr-1.5"
                     style={{ height: `${CELL_HEIGHT}px` }}>
                     {(time.endsWith(':00') || time.endsWith(':30')) && (
@@ -313,13 +361,10 @@ const StudentAvailability = () => {
                     )}
                   </div>
 
-                  {/* Day cells */}
                   {weekDates.map((date) => {
                     const slotsHere = getSlotsAt(date, time)
 
                     const availableHere = slotsHere.filter(s => s.slotType === 'available')
-                    // NEW
-                    const startingAvailable = availableHere.find(s => s.startTime === time)
 
                     const nonAvailHere = slotsHere.filter(s => s.slotType !== 'available')
                     const nonAvailStarting = nonAvailHere.filter(s => s.startTime === time)
@@ -348,7 +393,6 @@ const StudentAvailability = () => {
                           const isTopRow    = s.startTime === time
                           const lastRowTime = toTime(toMins(s.endTime) - SLOT_MINS)
                           const isBottomRow = lastRowTime === time
-                          const lessonMins = Number.isFinite(s.lessonLength) ? s.lessonLength : DEFAULT_LESSON_MINS
                           const spanH = spanCells(s)
 
                           return (
@@ -373,18 +417,12 @@ const StudentAvailability = () => {
                                   <p className="text-[10px] font-bold truncate">
                                     {s.startTime}–{s.endTime}
                                   </p>
-                                  {spanH * CELL_HEIGHT >= 28 && (
-                                    <p className="text-[10px] font-semibold opacity-80 truncate">
-                                      🎓 {lessonMins} min session
-                                    </p>
-                                  )}
                                 </div>
                               )}
                             </div>
                           )
                         })}
 
-                        {/* Non-available (booked/buffer) — tall block, starts at startTime row only */}
                         {nonAvailStarting.map(s => {
                           const spanH = spanCells(s)
                           const meta  = STATUS_META[s.slotType] || STATUS_META.buffer
@@ -407,7 +445,6 @@ const StudentAvailability = () => {
                           )
                         })}
 
-                        {/* Hover tooltip: exact time range that will be booked */}
                         {hoverBlock && date === hoverDate && time === hoverTime && (
                           <div
                             className="absolute left-1/2 z-30 px-2 py-1 rounded-lg shadow-md text-xs font-semibold whitespace-nowrap pointer-events-none"
@@ -430,7 +467,6 @@ const StudentAvailability = () => {
           </div>
         )}
 
-        {/* Legend */}
         <div className="flex flex-wrap gap-4 mt-3 justify-center text-xs text-gray-500">
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded inline-block"
@@ -449,7 +485,6 @@ const StudentAvailability = () => {
           </span>
         </div>
 
-        {/* My Bookings */}
         <div className="mt-10">
           <h2 className="text-xl font-bold text-gray-800 mb-4">📌 My Bookings</h2>
           {myBookings.length === 0 ? (
@@ -461,19 +496,20 @@ const StudentAvailability = () => {
             <div className="flex flex-col gap-3">
               {myBookings.map(slot => (
                 <div key={slot._id}
-                  className="bg-white rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm"
+                  className="bg-white rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 shadow-sm"
                   style={{ border: `1px solid ${SLOT_COLOUR.border}` }}>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-start gap-4 flex-1 min-w-0">
                     <div className="text-2xl">✅</div>
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="font-semibold text-gray-800 text-sm">
                         {slot.dayOfWeek} — {formatDisplay(slot.date)}
                       </p>
                       <p className="text-xs text-gray-500">{slot.startTime} – {slot.endTime}</p>
+                      <BookingNote slot={slot} token={token} onSaved={handleNoteSaved} />
                     </div>
                   </div>
                   <button onClick={() => handleUnbook(slot._id)}
-                    className="bg-red-100 text-red-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-red-200 transition self-start sm:self-auto">
+                    className="bg-red-100 text-red-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-red-200 transition self-start sm:self-auto shrink-0">
                     Cancel Booking
                   </button>
                 </div>
