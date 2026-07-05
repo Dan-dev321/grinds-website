@@ -505,7 +505,7 @@ const TutorAvailability = () => {
 
                                   {startingSlot.studentNote && (
                                     <span
-                                      title={startingSlot.studentNote}
+                                      title={JSON.stringify(startingSlot.studentNote)}
                                       className="text-xs cursor-help"
                                     >
                                       📝
