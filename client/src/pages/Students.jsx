@@ -73,10 +73,8 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
   const { token } = useAuth()
   const authHeader = token ? { headers: { Authorization: `Bearer ${token}` } } : {}
 
-  // ── Tabs: 'overview' | 'sessions' ────────────────────────────────────────────
   const [tab, setTab] = useState('overview')
 
-  // ── Edit mode ─────────────────────────────────────────────────────────────────
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({
     phone:       student.phone       || '',
@@ -92,13 +90,11 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileFlash, setProfileFlash]   = useState('')
 
-  // ── Progress ─────────────────────────────────────────────────────────────────
-  const [stage, setStage]   = useState(student.progressStage || 'just-started')
+  const [stage, setStage]         = useState(student.progressStage || 'just-started')
   const [savingStage, setSavingStage] = useState(false)
   const [stageFlash, setStageFlash]   = useState('')
 
-  // ── Sessions ─────────────────────────────────────────────────────────────────
-  const [sessions, setSessions]             = useState([])
+  const [sessions, setSessions]               = useState([])
   const [loadingSessions, setLoadingSessions] = useState(true)
 
   useEffect(() => {
@@ -120,7 +116,6 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
   const noShows   = sessions.filter(s => s.status === 'no-show')
   const stageIndex = PROGRESS_STAGES.findIndex(s => s.value === stage)
 
-  // ── Handlers ──────────────────────────────────────────────────────────────────
   const handleFormChange = (e) => {
     const { name, value } = e.target
     setForm(f => ({ ...f, [name]: value }))
@@ -193,7 +188,6 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
               <p className="text-xs text-gray-400 truncate">{student.email}</p>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              {/* Prominent Edit button */}
               {tab === 'overview' && !editing && (
                 <button
                   onClick={() => setEditing(true)}
@@ -211,7 +205,6 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
             </div>
           </div>
 
-          {/* Tabs */}
           <div className="flex gap-1 bg-gray-100 rounded-lg p-1">
             {['overview', 'sessions'].map(t => (
               <button
@@ -230,10 +223,8 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
         {/* ── Body ── */}
         <div className="overflow-y-auto flex-1 p-6 flex flex-col gap-6">
 
-          {/* ── OVERVIEW TAB ── */}
           {tab === 'overview' && (
             <>
-              {/* Stat pills */}
               <div className="grid grid-cols-3 gap-3">
                 {[
                   { icon: '📅', label: 'Upcoming',  val: upcoming.length,  bg: 'bg-blue-50',  num: 'text-blue-700' },
@@ -248,7 +239,6 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
                 ))}
               </div>
 
-              {/* Progress stage */}
               <section>
                 <h3 className="text-sm font-bold text-gray-700 mb-3">📈 Progress Stage</h3>
                 <div className="flex gap-1 mb-3">
@@ -294,7 +284,6 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
 
               <hr className="border-gray-100" />
 
-              {/* Profile — VIEW mode */}
               {!editing && (
                 <section>
                   <div className="flex items-center justify-between mb-3">
@@ -306,10 +295,10 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
                     )}
                   </div>
                   <div className="bg-gray-50 rounded-xl p-4 flex flex-col gap-2.5">
-                    {student.phone     && <Row label="Phone"       value={student.phone} />}
-                    {student.school    && <Row label="School"      value={student.school} />}
-                    {student.yearGroup && <Row label="Year Group"  value={student.yearGroup} />}
-                    {student.examBoard && <Row label="Exam Board"  value={student.examBoard} />}
+                    {student.phone     && <Row label="Phone"      value={student.phone} />}
+                    {student.school    && <Row label="School"     value={student.school} />}
+                    {student.yearGroup && <Row label="Year Group" value={student.yearGroup} />}
+                    {student.examBoard && <Row label="Exam Board" value={student.examBoard} />}
                     {(student.subjects?.length ?? 0) > 0 && (
                       <div className="flex flex-wrap gap-1.5 pt-1">
                         {student.subjects.map(sub => (
@@ -341,7 +330,6 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
                 </section>
               )}
 
-              {/* Profile — EDIT mode */}
               {editing && (
                 <section>
                   <div className="flex items-center justify-between mb-4">
@@ -404,7 +392,6 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
             </>
           )}
 
-          {/* ── SESSIONS TAB ── */}
           {tab === 'sessions' && (
             <section>
               <div className="grid grid-cols-3 gap-3 mb-5">
@@ -480,6 +467,9 @@ const Students = () => {
   const [filterStage, setFilterStage]     = useState('all')
   const [selected, setSelected]           = useState(null)
 
+  // ── Page-level tab: 'overview' | 'students' ──────────────────────────────────
+  const [pageTab, setPageTab] = useState('overview')
+
   const fetchStudents = async () => {
     try {
       setLoading(true)
@@ -522,15 +512,58 @@ const Students = () => {
     return matchSearch && matchSubject && matchStage
   })
 
+  // ── Overview computed stats ───────────────────────────────────────────────────
+  const totalBooked  = students.reduce((acc, s) => acc + (s.sessionStats?.booked    ?? 0), 0)
+  const totalDone    = students.reduce((acc, s) => acc + (s.sessionStats?.completed ?? 0), 0)
+  const totalNoShow  = students.reduce((acc, s) => acc + (s.sessionStats?.noShow    ?? 0), 0)
+
+  const stageBreakdown = PROGRESS_STAGES.map(s => ({
+    ...s,
+    count: students.filter(st => (st.progressStage || 'just-started') === s.value).length,
+  }))
+
+  const subjectBreakdown = allSubjects
+    .map(sub => ({
+      name:   sub,
+      count:  students.filter(s => (s.subjects || []).includes(sub)).length,
+      colour: subjectColour(sub),
+    }))
+    .sort((a, b) => b.count - a.count)
+
+  const noShowStudents = students
+    .filter(s => (s.sessionStats?.noShow ?? 0) > 0)
+    .sort((a, b) => (b.sessionStats?.noShow ?? 0) - (a.sessionStats?.noShow ?? 0))
+
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-6xl mx-auto">
 
-        <div className="mb-8 text-center">
+        {/* ── Page Header ── */}
+        <div className="mb-6 text-center">
           <h1 className="text-4xl font-extrabold text-gray-800 mb-2">👨‍🎓 Students</h1>
           <p className="text-gray-500 text-sm">
-            {students.length} student{students.length !== 1 ? 's' : ''} · click any card for full details
+            {students.length} student{students.length !== 1 ? 's' : ''}
           </p>
+        </div>
+
+        {/* ── Page-level Tabs ── */}
+        <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 mb-8 shadow-sm max-w-sm mx-auto">
+          {[
+            { key: 'overview',  label: '📊 Overview'  },
+            { key: 'students',  label: '🎓 Students'  },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setPageTab(key)}
+              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition ${
+                pageTab === key
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {error && (
@@ -539,118 +572,251 @@ const Students = () => {
           </div>
         )}
 
-        <div className="flex flex-col sm:flex-row gap-3 mb-8">
-          <input
-            type="text"
-            placeholder="Search by name or email…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="flex-1 border border-gray-200 bg-white rounded-xl px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-          <select
-            value={filterSubject}
-            onChange={e => setFilterSubject(e.target.value)}
-            className="border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All subjects</option>
-            {allSubjects.map(sub => <option key={sub} value={sub}>{sub}</option>)}
-          </select>
-          <select
-            value={filterStage}
-            onChange={e => setFilterStage(e.target.value)}
-            className="border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">All stages</option>
-            {PROGRESS_STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
-        </div>
-
-        {loading ? (
-          <div className="text-center py-24 text-gray-400">
-            <div className="text-5xl mb-3">⏳</div>
-            <p>Loading students…</p>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="text-center py-24 bg-white rounded-2xl border border-gray-100 shadow-sm text-gray-400">
-            <div className="text-5xl mb-3">{students.length === 0 ? '🎒' : '🔍'}</div>
-            <p className="font-medium text-gray-500">
-              {students.length === 0 ? 'No students yet' : 'No students match your filters'}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {filtered.map(student => {
-              const stage       = student.progressStage || 'just-started'
-              const stageColour = getStageColour(stage)
-              const stageLabel  = getStageLabel(stage)
-              const booked      = student.sessionStats?.booked    ?? 0
-              const done        = student.sessionStats?.completed ?? 0
-              const noShow      = student.sessionStats?.noShow    ?? 0
-
-              return (
-                <div
-                  key={student._id}
-                  onClick={() => setSelected(student)}
-                  className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-extrabold text-gray-800 text-base truncate group-hover:text-blue-700 transition">
-                        {student.name}
-                      </h3>
-                      <p className="text-xs text-gray-400 truncate">{student.email}</p>
+        {/* ══════════════════════════════════════════════════════════════════════
+            OVERVIEW TAB
+        ══════════════════════════════════════════════════════════════════════ */}
+        {pageTab === 'overview' && (
+          <>
+            {loading ? (
+              <div className="text-center py-24 text-gray-400">
+                <div className="text-5xl mb-3">⏳</div>
+                <p>Loading…</p>
+              </div>
+            ) : (
+              <>
+                {/* ── Hero stat cards ── */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+                  {[
+                    { icon: '👨‍🎓', label: 'Total Students',      val: students.length, bg: 'bg-blue-50',   num: 'text-blue-700'   },
+                    { icon: '📅', label: 'Upcoming Sessions',    val: totalBooked,     bg: 'bg-indigo-50', num: 'text-indigo-700' },
+                    { icon: '✅', label: 'Completed Sessions',   val: totalDone,       bg: 'bg-green-50',  num: 'text-green-700'  },
+                    { icon: '🚫', label: 'Total No-Shows',       val: totalNoShow,     bg: 'bg-red-50',    num: 'text-red-500'    },
+                  ].map(({ icon, label, val, bg, num }) => (
+                    <div key={label} className={`rounded-2xl p-5 text-center ${bg} border border-white shadow-sm`}>
+                      <p className="text-2xl mb-1">{icon}</p>
+                      <p className={`text-3xl font-extrabold leading-tight ${num}`}>{val}</p>
+                      <p className="text-xs text-gray-500 mt-1 font-medium">{label}</p>
                     </div>
-                    <span className={`ml-2 shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full ${stageColour}`}>
-                      {stageLabel}
-                    </span>
+                  ))}
+                </div>
+
+                {/* ── Breakdown panels ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+                  {/* Progress stage breakdown */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                    <h2 className="text-base font-bold text-gray-700 mb-5">📈 Progress Breakdown</h2>
+                    {students.length === 0 ? (
+                      <p className="text-sm text-gray-400 text-center py-6">No students yet</p>
+                    ) : (
+                      <div className="flex flex-col gap-4">
+                        {stageBreakdown.map(s => (
+                          <div key={s.value} className="flex items-center gap-3">
+                            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 w-44 text-center ${s.colour}`}>
+                              {s.label}
+                            </span>
+                            <div className="flex-1 bg-gray-100 rounded-full h-2">
+                              <div
+                                className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                                style={{ width: `${(s.count / students.length) * 100}%` }}
+                              />
+                            </div>
+                            <span className="text-sm font-bold text-gray-700 w-5 text-right shrink-0">
+                              {s.count}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
-                  {(student.subjects?.length ?? 0) > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mb-4">
-                      {student.subjects.map(sub => (
-                        <span key={sub} className={`text-xs font-semibold px-2 py-0.5 rounded-full ${subjectColour(sub)}`}>
-                          {sub}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-3 gap-2 mb-4">
-                    <div className="bg-blue-50 rounded-xl p-2.5 text-center">
-                      <p className="text-lg font-extrabold text-blue-700">{booked}</p>
-                      <p className="text-xs text-blue-500 leading-tight">Booked</p>
-                    </div>
-                    <div className="bg-green-50 rounded-xl p-2.5 text-center">
-                      <p className="text-lg font-extrabold text-green-700">{done}</p>
-                      <p className="text-xs text-green-500 leading-tight">Done</p>
-                    </div>
-                    <div className="bg-red-50 rounded-xl p-2.5 text-center">
-                      <p className="text-lg font-extrabold text-red-500">{noShow}</p>
-                      <p className="text-xs text-red-400 leading-tight">No Show</p>
-                    </div>
-                  </div>
-
-                  <div onClick={e => e.stopPropagation()}>
-                    <select
-                      value={stage}
-                      onChange={e => handleStageDropdown(student._id, e.target.value, e)}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                    >
-                      {PROGRESS_STAGES.map(s => (
-                        <option key={s.value} value={s.value}>{s.label}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between text-xs text-gray-400">
-                    <span>{student.school || student.yearGroup || '—'}</span>
-                    <span className="text-blue-500 font-medium group-hover:underline">View details →</span>
+                  {/* Subject breakdown */}
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                    <h2 className="text-base font-bold text-gray-700 mb-5">📚 Subject Breakdown</h2>
+                    {subjectBreakdown.length === 0 ? (
+                      <p className="text-sm text-gray-400 text-center py-6">No subjects added yet</p>
+                    ) : (
+                      <div className="flex flex-col gap-4">
+                        {subjectBreakdown.map(({ name, count, colour }) => (
+                          <div key={name} className="flex items-center gap-3">
+                            <span className={`text-xs font-semibold px-2.5 py-1 rounded-full shrink-0 w-44 text-center ${colour}`}>
+                              {name}
+                            </span>
+                            <div className="flex-1 bg-gray-100 rounded-full h-2">
+                              <div
+                                className="bg-violet-400 h-2 rounded-full transition-all duration-500"
+                                style={{ width: `${(count / students.length) * 100}%` }}
+                              />
+                            </div>
+                            <span className="text-sm font-bold text-gray-700 w-5 text-right shrink-0">
+                              {count}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
-              )
-            })}
-          </div>
+
+                {/* ── No-show attention panel ── */}
+                {noShowStudents.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                    <h2 className="text-base font-bold text-gray-700 mb-4">⚠️ Students with No-Shows</h2>
+                    <div className="flex flex-col gap-2">
+                      {noShowStudents.map(s => (
+                        <div
+                          key={s._id}
+                          onClick={() => { setSelected(s); }}
+                          className="flex items-center justify-between px-4 py-3 bg-red-50 rounded-xl border border-red-100 cursor-pointer hover:bg-red-100 transition group"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold text-gray-800 truncate group-hover:text-blue-700 transition">
+                              {s.name}
+                            </p>
+                            <p className="text-xs text-gray-400 truncate">{s.email}</p>
+                          </div>
+                          <span className="ml-3 shrink-0 text-xs font-bold text-red-700 bg-red-200 px-2.5 py-1 rounded-full">
+                            {s.sessionStats.noShow} no-show{s.sessionStats.noShow !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty state */}
+                {students.length === 0 && (
+                  <div className="text-center py-24 bg-white rounded-2xl border border-gray-100 shadow-sm text-gray-400">
+                    <div className="text-5xl mb-3">🎒</div>
+                    <p className="font-medium text-gray-500">No students yet</p>
+                  </div>
+                )}
+              </>
+            )}
+          </>
         )}
+
+        {/* ══════════════════════════════════════════════════════════════════════
+            STUDENTS TAB
+        ══════════════════════════════════════════════════════════════════════ */}
+        {pageTab === 'students' && (
+          <>
+            {/* Search & Filters */}
+            <div className="flex flex-col sm:flex-row gap-3 mb-8">
+              <input
+                type="text"
+                placeholder="Search by name or email…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="flex-1 border border-gray-200 bg-white rounded-xl px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <select
+                value={filterSubject}
+                onChange={e => setFilterSubject(e.target.value)}
+                className="border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All subjects</option>
+                {allSubjects.map(sub => <option key={sub} value={sub}>{sub}</option>)}
+              </select>
+              <select
+                value={filterStage}
+                onChange={e => setFilterStage(e.target.value)}
+                className="border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="all">All stages</option>
+                {PROGRESS_STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+
+            {loading ? (
+              <div className="text-center py-24 text-gray-400">
+                <div className="text-5xl mb-3">⏳</div>
+                <p>Loading students…</p>
+              </div>
+            ) : filtered.length === 0 ? (
+              <div className="text-center py-24 bg-white rounded-2xl border border-gray-100 shadow-sm text-gray-400">
+                <div className="text-5xl mb-3">{students.length === 0 ? '🎒' : '🔍'}</div>
+                <p className="font-medium text-gray-500">
+                  {students.length === 0 ? 'No students yet' : 'No students match your filters'}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {filtered.map(student => {
+                  const stage       = student.progressStage || 'just-started'
+                  const stageColour = getStageColour(stage)
+                  const stageLabel  = getStageLabel(stage)
+                  const booked      = student.sessionStats?.booked    ?? 0
+                  const done        = student.sessionStats?.completed ?? 0
+                  const noShow      = student.sessionStats?.noShow    ?? 0
+
+                  return (
+                    <div
+                      key={student._id}
+                      onClick={() => setSelected(student)}
+                      className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-extrabold text-gray-800 text-base truncate group-hover:text-blue-700 transition">
+                            {student.name}
+                          </h3>
+                          <p className="text-xs text-gray-400 truncate">{student.email}</p>
+                        </div>
+                        <span className={`ml-2 shrink-0 text-xs font-semibold px-2.5 py-1 rounded-full ${stageColour}`}>
+                          {stageLabel}
+                        </span>
+                      </div>
+
+                      {(student.subjects?.length ?? 0) > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mb-4">
+                          {student.subjects.map(sub => (
+                            <span key={sub} className={`text-xs font-semibold px-2 py-0.5 rounded-full ${subjectColour(sub)}`}>
+                              {sub}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-3 gap-2 mb-4">
+                        <div className="bg-blue-50 rounded-xl p-2.5 text-center">
+                          <p className="text-lg font-extrabold text-blue-700">{booked}</p>
+                          <p className="text-xs text-blue-500 leading-tight">Booked</p>
+                        </div>
+                        <div className="bg-green-50 rounded-xl p-2.5 text-center">
+                          <p className="text-lg font-extrabold text-green-700">{done}</p>
+                          <p className="text-xs text-green-500 leading-tight">Done</p>
+                        </div>
+                        <div className="bg-red-50 rounded-xl p-2.5 text-center">
+                          <p className="text-lg font-extrabold text-red-500">{noShow}</p>
+                          <p className="text-xs text-red-400 leading-tight">No Show</p>
+                        </div>
+                      </div>
+
+                      <div onClick={e => e.stopPropagation()}>
+                        <select
+                          value={stage}
+                          onChange={e => handleStageDropdown(student._id, e.target.value, e)}
+                          className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                        >
+                          {PROGRESS_STAGES.map(s => (
+                            <option key={s.value} value={s.value}>{s.label}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between text-xs text-gray-400">
+                        <span>{student.school || student.yearGroup || '—'}</span>
+                        <span className="text-blue-500 font-medium group-hover:underline">View details →</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
+        )}
+
       </div>
 
       {selected && (
