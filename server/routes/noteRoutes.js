@@ -9,6 +9,8 @@ const {
   updateEntry,
 } = require('../controllers/noteController')
 
+const { markNoShow } = require('../controllers/availabilityController')
+
 // ── PDF export temporarily disabled (puppeteer install issue on Render) ────
 const {
   exportStudentPDF,
@@ -25,6 +27,7 @@ router.get('/student/:studentId/entry/:entryId/export',      protect, tutorOnly,
 
 // ── Write — blocked if trial expired or cancelled ─────────────────────────
 router.put('/complete/:id',                      protect, tutorOnly, requireSubscription, completeSession)
+router.put('/no-show/:id',                       protect, tutorOnly, requireSubscription, markNoShow)
 router.put('/student/:studentId/entry/:entryId', protect, tutorOnly, requireSubscription, updateEntry)
 
 module.exports = router
