@@ -18,6 +18,7 @@ const {
   cleanupStaleSlots,
   repeatWeekly,
   clearDay,
+  updateStudentNote   // ✅ ADD THIS
 } = require('../controllers/availabilityController')
 
 // ── Public / Read ─────────────────────────────────────────────────────────────
