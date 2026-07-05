@@ -1,13 +1,20 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const Navbar = () => {
-  const { user, logout } = useAuth()
+  const { user, logout, refreshUser, token } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const [menuOpen, setMenuOpen]       = useState(false)
+  const [menuOpen, setMenuOpen]         = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+
+  // ── Refresh subscription status on every mount ────────────────
+  useEffect(() => {
+    if (token && user?.role === 'tutor') {
+      refreshUser(token)
+    }
+  }, [token]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLogout = () => {
     logout()
@@ -26,19 +33,19 @@ const Navbar = () => {
     return roleMap[user.role] || '/dashboard/student'
   }
 
-  const isTutor = user?.role === 'tutor'
-  const isOwner = user?.role === 'owner'
+  const isTutor   = user?.role === 'tutor'
+  const isOwner   = user?.role === 'owner'
   const isStudent = user?.role === 'student'
 
-  // ── Subscription gate check (client-side, from JWT) ──────────
-  // trial_expired is computed: status === 'trial' but trialEnds has passed
+  // ── Subscription gate check ───────────────────────────────────
   const subStatus = user?.subscription?.status
   const trialEnds = user?.subscription?.trialEnds
   const isTrialExpired =
     subStatus === 'trial_expired' ||
     (subStatus === 'trial' && trialEnds && new Date() > new Date(trialEnds))
   const hasActiveAccess =
-    subStatus === 'active' || (subStatus === 'trial' && !isTrialExpired)
+    subStatus === 'active' ||
+    subStatus === 'trial' && !isTrialExpired
 
   // Active link helper
   const isActive = (path) => location.pathname === path
@@ -52,9 +59,9 @@ const Navbar = () => {
 
   // ── Links per role ────────────────────────────────────────────
   const publicLinks = [
-    { to: '/',        label: 'Home'    },
+    { to: '/',         label: 'Home'     },
     { to: '/features', label: 'Features' },
-    { to: '/pricing', label: 'Pricing' },
+    { to: '/pricing',  label: 'Pricing'  },
   ]
 
   const studentLinks = [
@@ -62,8 +69,6 @@ const Navbar = () => {
     { to: '/studentavailability', label: 'Book a Session' },
   ]
 
-  // Tutors with expired/cancelled subscriptions only see Dashboard + Pricing
-  // Active/trial tutors see the full nav
   const tutorLinks = hasActiveAccess
     ? [
         { to: '/dashboard/tutor',   label: 'Dashboard' },
@@ -72,7 +77,7 @@ const Navbar = () => {
         { to: '/notebook',          label: 'Notes'     },
       ]
     : [
-        { to: '/dashboard/tutor', label: 'Dashboard' },
+        { to: '/dashboard/tutor', label: 'Dashboard'  },
         { to: '/pricing',         label: 'Upgrade ✨' },
       ]
 
@@ -142,10 +147,7 @@ const Navbar = () => {
 
                 {dropdownOpen && (
                   <>
-                    <div
-                      className="fixed inset-0 z-10"
-                      onClick={() => setDropdownOpen(false)}
-                    />
+                    <div className="fixed inset-0 z-10" onClick={() => setDropdownOpen(false)} />
                     <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20">
 
                       {/* User info */}
@@ -156,7 +158,6 @@ const Navbar = () => {
                           <span className="text-xs font-semibold bg-brand-100 text-brand-700 px-2 py-0.5 rounded-full capitalize">
                             {user.role}
                           </span>
-                          {/* ── Subscription status pill ── */}
                           {isTutor && (
                             <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
                               subStatus === 'active'
@@ -185,7 +186,6 @@ const Navbar = () => {
                           <span>🏠</span> Dashboard
                         </Link>
 
-                        {/* Student dropdown links */}
                         {isStudent && (
                           <Link
                             to="/studentavailability"
@@ -196,7 +196,6 @@ const Navbar = () => {
                           </Link>
                         )}
 
-                        {/* Tutor dropdown links — only if active/trial */}
                         {isTutor && hasActiveAccess && (
                           <>
                             <Link
@@ -216,7 +215,6 @@ const Navbar = () => {
                           </>
                         )}
 
-                        {/* Expired tutor — show upgrade link */}
                         {isTutor && !hasActiveAccess && (
                           <Link
                             to="/pricing"
@@ -311,7 +309,6 @@ const Navbar = () => {
           <div className="border-t border-brand-500 mt-2 pt-3 flex flex-col gap-1">
             {user ? (
               <>
-                {/* User info pill */}
                 <div className="flex items-center gap-3 px-3 py-2 mb-1">
                   <div className="w-8 h-8 bg-accent-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
                     {user.name?.charAt(0).toUpperCase()}
@@ -330,7 +327,6 @@ const Navbar = () => {
                   🏠 Dashboard
                 </Link>
 
-                {/* Student mobile links */}
                 {isStudent && (
                   <Link
                     to="/studentavailability"
@@ -341,7 +337,6 @@ const Navbar = () => {
                   </Link>
                 )}
 
-                {/* Tutor mobile links — only if active/trial */}
                 {isTutor && hasActiveAccess && (
                   <Link
                     to="/notebook"
@@ -352,7 +347,6 @@ const Navbar = () => {
                   </Link>
                 )}
 
-                {/* Expired tutor mobile — show upgrade */}
                 {isTutor && !hasActiveAccess && (
                   <Link
                     to="/pricing"
