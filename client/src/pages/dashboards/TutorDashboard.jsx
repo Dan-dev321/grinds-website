@@ -100,6 +100,17 @@ const TutorDashboard = () => {
     }
   }
 
+  const handleMarkNoShow = async (slotId) => {
+    if (!window.confirm('Mark this session as a no-show?')) return
+    try {
+      await axios.put(`${API}/api/notes/no-show/${slotId}`, {}, authHeader)
+      flashSuccess('Session marked as no-show')
+      fetchData()
+    } catch (err) {
+      flashError(err.response?.data?.message || 'Failed to mark as no-show')
+    }
+  }
+
   // ── Derived data ──────────────────────────────────────────────
   const todayStr    = toDateStr(new Date())
   const now         = new Date()
@@ -440,12 +451,20 @@ const TutorDashboard = () => {
                       <div className="flex items-center gap-2 self-start sm:self-auto">
                         <StatusPill status={slot.status} />
                         {!isCompleted && !isNoShow && (
-                          <button
-                            onClick={() => handleMarkComplete(slot._id)}
-                            className="text-xs bg-green-100 text-green-700 border border-green-200 px-3 py-1 rounded-full font-semibold hover:bg-green-200 transition"
-                          >
-                            Mark Complete
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleMarkComplete(slot._id)}
+                              className="text-xs bg-green-100 text-green-700 border border-green-200 px-3 py-1 rounded-full font-semibold hover:bg-green-200 transition"
+                            >
+                              Mark Complete
+                            </button>
+                            <button
+                              onClick={() => handleMarkNoShow(slot._id)}
+                              className="text-xs bg-red-100 text-red-600 border border-red-200 px-3 py-1 rounded-full font-semibold hover:bg-red-200 transition"
+                            >
+                              No-show
+                            </button>
+                          </>
                         )}
                       </div>
                     </div>

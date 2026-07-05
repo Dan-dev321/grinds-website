@@ -38,24 +38,38 @@ const dateStrToObj = (dateStr) => {
 }
 
 // Best-effort decode of the Authorization header, without requiring auth.
-// Used by getSlotsByWeek (a public route) to detect a logged-in STUDENT and
-// force their own tutorId — this route can't use the normal `protect`
-// middleware since logged-out visitors and tutors also need to hit it freely.
-const tryGetStudentTutorId = async (req) => {
+// Used by getSlotsByWeek (a public route) to detect a logged-in STUDENT or
+// TUTOR and force the correct tutorId — this route can't use the normal
+// `protect` middleware since logged-out visitors also need to hit it freely.
+//
+// Returns { role, tutorId } where:
+//   - role 'student' => tutorId is that student's own tutor (always enforced)
+//   - role 'tutor'    => tutorId is the tutor's own id (always enforced)
+//   - role null       => no valid token; caller falls back to query param
+const tryGetIdentity = async (req) => {
   const header = req.headers.authorization
-  if (!header?.startsWith('Bearer ')) return null
+  if (!header?.startsWith('Bearer ')) return { role: null, tutorId: null }
 
   try {
     const token = header.split(' ')[1]
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
-    if (decoded.role !== 'student') return null
 
-    const student = await Student.findById(decoded.id).select('tutorId')
-    return student?.tutorId?.toString() || null
+    if (decoded.role === 'student') {
+      const student = await Student.findById(decoded.id).select('tutorId')
+      return { role: 'student', tutorId: student?.tutorId?.toString() || null }
+    }
+
+    if (decoded.role === 'tutor' || decoded.role === 'admin') {
+      // Tutors (and tutor-admins) should only ever see their own calendar
+      // via this route. Admin-wide views go through getAllSlots instead.
+      return { role: decoded.role, tutorId: decoded.id }
+    }
+
+    return { role: null, tutorId: null }
   } catch {
     // Invalid/expired token on a public route — just treat as logged-out
     // rather than erroring, since this route doesn't require auth.
-    return null
+    return { role: null, tutorId: null }
   }
 }
 
@@ -152,11 +166,14 @@ const addManualBooking = async (req, res) => {
 // ─── GET SLOTS BY WEEK ────────────────────────────────────────────────────────
 // SECURITY NOTE: this route is intentionally public (logged-out visitors can
 // browse a tutor's calendar), so it can't use the `protect` middleware.
-// However, a logged-in STUDENT must never be able to see another tutor's
-// slots — so if the request carries a valid student token, their own
-// tutorId always overrides whatever tutorId (if any) was passed in the query.
-// This closes the gap where a student's frontend simply not sending tutorId
-// (or a modified request omitting it) would leak every tutor's schedule.
+// However:
+//   - a logged-in STUDENT must never see another tutor's slots
+//   - a logged-in TUTOR (viewing their own dashboard) must never see another
+//     tutor's slots or students either
+// So if the request carries a valid student OR tutor token, that identity's
+// own tutorId always overrides whatever tutorId (if any) was passed in the
+// query. This closes the gap where omitting tutorId from the request (by
+// accident or by a modified request) would leak every tutor's schedule.
 const getSlotsByWeek = async (req, res) => {
   try {
     const { weekStart, tutorId: queryTutorId } = req.query
@@ -169,10 +186,19 @@ const getSlotsByWeek = async (req, res) => {
       return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`
     })
 
-    const studentTutorId = await tryGetStudentTutorId(req)
+    const { role, tutorId: identityTutorId } = await tryGetIdentity(req)
 
-    // Student identity always wins over any client-supplied tutorId.
-    const effectiveTutorId = studentTutorId || queryTutorId
+    // A logged-in student or tutor's own identity always wins over any
+    // client-supplied tutorId. Only an anonymous/logged-out request falls
+    // back to the query param (public calendar browsing).
+    const effectiveTutorId = identityTutorId || queryTutorId
+
+    // Extra guard: if we identified a student/tutor but somehow couldn't
+    // resolve a tutorId for them (e.g. student has no tutor assigned yet),
+    // return no slots rather than silently falling through to "all slots".
+    if (role && !identityTutorId) {
+      return res.json([])
+    }
 
     const query = { date: { $in: dates } }
     if (effectiveTutorId) query.tutor = effectiveTutorId
@@ -708,6 +734,24 @@ const updateStudentNote = async (req, res) => {
   }
 }
 
+// ─── MARK BOOKING AS NO-SHOW (Tutor/Admin) ───────────────────────────────────
+const markNoShow = async (req, res) => {
+  try {
+    const slot = await Availability.findOne({ _id: req.params.id, tutor: req.user.id })
+
+    if (!slot) return res.status(404).json({ message: 'Booking not found' })
+    if (slot.slotType !== 'booked')
+      return res.status(400).json({ message: 'This slot is not a booking' })
+
+    slot.status = 'no-show'
+    await slot.save()
+
+    res.json({ message: 'Session marked as no-show', slot })
+  } catch (err) {
+    res.status(500).json({ message: 'Server error', error: err.message })
+  }
+}
+
 // ─── EXPORTS ──────────────────────────────────────────────────────────────────
 module.exports = {
   addSlot,
@@ -724,4 +768,5 @@ module.exports = {
   repeatWeekly,
   clearDay,
   updateStudentNote,
+  markNoShow,
 }
