@@ -16,7 +16,7 @@ const SETTINGS_KEY = 'tutorAvailabilitySettings'
 
 const LESSON_PRESETS = [30, 45, 60, 90]
 
-const SLOT_COLOUR = { bg: '#dbeafe', border: '#3b82f6', text: '#1d4ed8' } // blue
+const SLOT_COLOUR = { bg: '#dbeafe', border: '#3b82f6', text: '#1d4ed8' }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const toMins  = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
@@ -38,9 +38,6 @@ const formatDisplay = (dateStr) => {
   return new Date(y, m-1, d).toLocaleDateString('en-IE', { day: 'numeric', month: 'short' })
 }
 
-// Pulls a display name/email off a slot regardless of whether it's a real
-// student booking (bookedBy, populated) or a manual/guest booking
-// (manualStudentName / manualStudentEmail).
 const getBookingContact = (slot) => {
   if (slot.isManualBooking) {
     return { name: slot.manualStudentName, email: slot.manualStudentEmail, manual: true }
@@ -90,7 +87,7 @@ const TutorAvailability = () => {
 
   const updateSetting = (key, value) => setSettings(s => ({ ...s, [key]: value }))
 
-  // ── Derived time grid (depends on working hours) ────────────────
+  // ── Derived time grid ───────────────────────────────────────────
   const totalSlots = Math.max(0, ((hourEnd - hourStart) * 60) / SLOT_MINS)
   const timeSlots = Array.from({ length: totalSlots }, (_, i) => {
     const totalMinsFromStart = hourStart * 60 + i * SLOT_MINS
@@ -101,7 +98,7 @@ const TutorAvailability = () => {
   // ── Sidebar open state ───────────────────────────────────────────
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  // ── Week state ───────────────────────────────────────────────
+  // ── Week state ───────────────────────────────────────────────────
   const [weekStart, setWeekStart] = useState(() => getMonday(new Date()))
   const weekDates = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(weekStart)
@@ -113,32 +110,32 @@ const TutorAvailability = () => {
   const prevWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate()-7); setWeekStart(d) }
   const nextWeek = () => { const d = new Date(weekStart); d.setDate(d.getDate()+7); setWeekStart(d) }
 
-  // ── Data state ───────────────────────────────────────────────
+  // ── Data state ───────────────────────────────────────────────────
   const [slots, setSlots]     = useState([])
   const [loading, setLoading] = useState(true)
   const [success, setSuccess] = useState('')
   const [error, setError]     = useState('')
 
-  // ── Drag state ───────────────────────────────────────────────
+  // ── Drag state ───────────────────────────────────────────────────
   const [selecting, setSelecting]     = useState(false)
   const [selectDate, setSelectDate]   = useState(null)
   const [selectStart, setSelectStart] = useState(null)
   const [selectEnd, setSelectEnd]     = useState(null)
 
-  // ── Copy day state (in Settings sidebar) ──────────────────────
+  // ── Copy day state ───────────────────────────────────────────────
   const [copyFrom, setCopyFrom] = useState('')
   const [copyTo, setCopyTo]     = useState('')
   const [copying, setCopying]   = useState(false)
 
-  // ── Recurring weekly template state ───────────────────────────
+  // ── Recurring weekly template state ──────────────────────────────
   const [recurUntil, setRecurUntil] = useState('')
   const [recurring, setRecurring]   = useState(false)
 
-  // ── Bulk clear day state ──────────────────────────────────────
+  // ── Bulk clear day state ─────────────────────────────────────────
   const [clearDate, setClearDate] = useState('')
   const [clearing, setClearing]   = useState(false)
 
-  // ── Manual booking state ──────────────────────────────────────
+  // ── Manual booking state ─────────────────────────────────────────
   const [manualOpen, setManualOpen]         = useState(false)
   const [manualDate, setManualDate]         = useState('')
   const [manualStart, setManualStart]       = useState('')
@@ -147,10 +144,29 @@ const TutorAvailability = () => {
   const [manualEmail, setManualEmail]       = useState('')
   const [manualSaving, setManualSaving]     = useState(false)
 
+  // ── Expanded notes state (keyed by slot._id) ─────────────────────
+  const [expandedNotes, setExpandedNotes] = useState({})
+
+  const toggleNote = (id) =>
+    setExpandedNotes(prev => ({ ...prev, [id]: !prev[id] }))
+
+  // Safely renders a note whether it's a string or an object
+  const renderNote = (note) => {
+    if (!note) return null
+    if (typeof note === 'string') return note
+    if (typeof note === 'object') {
+      return Object.entries(note)
+        .filter(([, v]) => v)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(' · ')
+    }
+    return String(note)
+  }
+
   const flashSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3500) }
   const flashError   = (msg) => { setError(msg);   setTimeout(() => setError(''),   3500) }
 
-  // ── Fetch ────────────────────────────────────────────────────
+  // ── Fetch ─────────────────────────────────────────────────────────
   const fetchSlots = async () => {
     try {
       setLoading(true)
@@ -169,14 +185,14 @@ const TutorAvailability = () => {
     fetchSlots()
   }, [weekStart, tutorId])
 
-  // ── Slot helpers ─────────────────────────────────────────────
+  // ── Slot helpers ──────────────────────────────────────────────────
   const getSlotsAt = (date, time) =>
     slots.filter(s => s.date === date && time >= s.startTime && time < s.endTime)
 
   const spanCells = (slot) =>
     (toMins(slot.endTime) - toMins(slot.startTime)) / SLOT_MINS
 
-  // ── Drag ──────────────────────────────────────────────────────
+  // ── Drag ──────────────────────────────────────────────────────────
   const handleCellMouseDown = (date, time) => {
     const existing = getSlotsAt(date, time)
     if (existing.length > 0) return
@@ -217,7 +233,7 @@ const TutorAvailability = () => {
     setSelectDate(null); setSelectStart(null); setSelectEnd(null)
   }
 
-  // ── Unbook ────────────────────────────────────────────────────
+  // ── Unbook ────────────────────────────────────────────────────────
   const handleUnbook = async (slotId) => {
     try {
       await axios.put(`${API}/api/availability/${slotId}/unbook`, {}, authHeader)
@@ -228,7 +244,7 @@ const TutorAvailability = () => {
     }
   }
 
-  // ── Delete ────────────────────────────────────────────────────
+  // ── Delete ────────────────────────────────────────────────────────
   const handleDelete = async (slotId) => {
     if (!window.confirm('Delete this slot?')) return
     try {
@@ -240,7 +256,7 @@ const TutorAvailability = () => {
     }
   }
 
-  // ── Copy day ──────────────────────────────────────────────────
+  // ── Copy day ──────────────────────────────────────────────────────
   const handleCopyDay = async () => {
     if (!copyFrom || !copyTo) return flashError('Please select both dates')
     try {
@@ -260,7 +276,7 @@ const TutorAvailability = () => {
     }
   }
 
-  // ── Recurring weekly template ──────────────────────────────────
+  // ── Recurring weekly template ─────────────────────────────────────
   const handleRecurringTemplate = async () => {
     if (!recurUntil) return flashError('Please select an end date')
     try {
@@ -280,7 +296,7 @@ const TutorAvailability = () => {
     }
   }
 
-  // ── Bulk clear a day ────────────────────────────────────────────
+  // ── Bulk clear a day ──────────────────────────────────────────────
   const handleBulkClearDay = async () => {
     if (!clearDate) return flashError('Please select a date to clear')
     if (!window.confirm(`Clear all unbooked slots on ${formatDisplay(clearDate)}?`)) return
@@ -300,7 +316,7 @@ const TutorAvailability = () => {
     }
   }
 
-  // ── Manual booking (student forgot to book via the calendar) ────
+  // ── Manual booking ────────────────────────────────────────────────
   const resetManualForm = () => {
     setManualDate(''); setManualStart(''); setManualDuration(lessonMins)
     setManualName(''); setManualEmail('')
@@ -332,9 +348,9 @@ const TutorAvailability = () => {
     }
   }
 
-  // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────
   // RENDER
-  // ─────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────
   return (
     <div
       className="min-h-screen bg-gray-50 py-10 px-2 select-none"
@@ -451,7 +467,6 @@ const TutorAvailability = () => {
                     const inSel     = selecting && date === selectDate &&
                                       time >= selectStart && time < selectEnd
 
-                    // Single tall block anchored at startTime
                     const startingSlot = slotsHere.find(s => s.startTime === time)
                     const slotSpan = startingSlot ? spanCells(startingSlot) : 0
                     const contact  = startingSlot ? getBookingContact(startingSlot) : null
@@ -493,25 +508,14 @@ const TutorAvailability = () => {
                               </p>
                               {startingSlot.lessonLength && (
                                 <p className="text-xs font-semibold leading-tight opacity-90">
-                                    🎓 {startingSlot.lessonLength} min
+                                  🎓 {startingSlot.lessonLength} min
                                 </p>
                               )}
                               {startingSlot.slotType === 'booked' && contact && (
-                                <div className="flex items-center gap-1">
-                                  <p className="text-xs leading-tight truncate opacity-80">
-                                    {contact.name}
-                                    {startingSlot.isManualBooking ? ' (manual)' : ''}
-                                  </p>
-
-                                  {startingSlot.studentNote && (
-                                    <span
-                                      title={JSON.stringify(startingSlot.studentNote)}
-                                      className="text-xs cursor-help"
-                                    >
-                                      📝
-                                    </span>
-                                  )}
-                                </div>
+                                <p className="text-xs leading-tight truncate opacity-80">
+                                  {contact.name}
+                                  {startingSlot.isManualBooking ? ' (manual)' : ''}
+                                </p>
                               )}
                               {startingSlot.slotType === 'buffer' && (
                                 <p className="text-xs leading-tight opacity-60">buffer</p>
@@ -574,45 +578,88 @@ const TutorAvailability = () => {
               {slots
                 .filter(s => s.slotType === 'available' || s.slotType === 'booked')
                 .map(slot => {
-                  const contact = getBookingContact(slot)
+                  const contact  = getBookingContact(slot)
+                  const hasNote  = !!slot.studentNote
+                  const noteOpen = !!expandedNotes[slot._id]
+
                   return (
-                    <div key={slot._id}
-                      className="bg-white rounded-xl px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 shadow-sm"
+                    <div
+                      key={slot._id}
+                      className="bg-white rounded-xl px-5 py-4 flex flex-col gap-3 shadow-sm"
                       style={{
                         border: `1px solid ${slot.slotType === 'booked' ? '#ef4444' : SLOT_COLOUR.border}`
-                      }}>
-                      <div className="flex items-center gap-4">
-                        <div className="text-2xl">{slot.slotType === 'booked' ? '🔴' : '🟢'}</div>
-                        <div>
-                          <p className="font-semibold text-gray-800 text-sm">
-                            {slot.dayOfWeek} — {formatDisplay(slot.date)}
-                          </p>
-                          <p className="text-xs text-gray-500">{slot.startTime} – {slot.endTime}</p>
-                          {slot.slotType === 'booked' && contact && (
-                            <p className="text-xs text-orange-500 font-medium">
-                              Booked by: {contact.name}
-                              {contact.email && ` (${contact.email})`}
-                              {slot.isManualBooking && (
-                                <span className="ml-1.5 text-gray-400 font-normal italic">— added manually</span>
-                              )}
+                      }}
+                    >
+                      {/* Top row: info + action buttons */}
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                        <div className="flex items-center gap-4">
+                          <div className="text-2xl">{slot.slotType === 'booked' ? '🔴' : '🟢'}</div>
+                          <div>
+                            <p className="font-semibold text-gray-800 text-sm">
+                              {slot.dayOfWeek} — {formatDisplay(slot.date)}
                             </p>
+                            <p className="text-xs text-gray-500">{slot.startTime} – {slot.endTime}</p>
+                            {slot.slotType === 'booked' && contact && (
+                              <p className="text-xs text-orange-500 font-medium">
+                                Booked by: {contact.name}
+                                {contact.email && ` (${contact.email})`}
+                                {slot.isManualBooking && (
+                                  <span className="ml-1.5 text-gray-400 font-normal italic">
+                                    — added manually
+                                  </span>
+                                )}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action buttons */}
+                        <div className="flex gap-2 flex-wrap">
+
+                          {/* Notes toggle — only shown if the student left a note */}
+                          {hasNote && (
+                            <button
+                              onClick={() => toggleNote(slot._id)}
+                              className={`text-xs px-4 py-1.5 rounded-full font-semibold transition flex items-center gap-1 ${
+                                noteOpen
+                                  ? 'bg-yellow-200 text-yellow-800 hover:bg-yellow-300'
+                                  : 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
+                              }`}
+                            >
+                              📝 Notes {noteOpen ? '▲' : '▼'}
+                            </button>
+                          )}
+
+                          {slot.slotType === 'booked' && (
+                            <button
+                              onClick={() => handleUnbook(slot._id)}
+                              className="bg-orange-100 text-orange-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-orange-200 transition"
+                            >
+                              Unbook
+                            </button>
+                          )}
+                          {slot.slotType === 'available' && (
+                            <button
+                              onClick={() => handleDelete(slot._id)}
+                              className="bg-red-100 text-red-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-red-200 transition"
+                            >
+                              Delete
+                            </button>
                           )}
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        {slot.slotType === 'booked' && (
-                          <button onClick={() => handleUnbook(slot._id)}
-                            className="bg-orange-100 text-orange-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-orange-200 transition">
-                            Unbook
-                          </button>
-                        )}
-                        {slot.slotType === 'available' && (
-                          <button onClick={() => handleDelete(slot._id)}
-                            className="bg-red-100 text-red-600 text-xs px-4 py-1.5 rounded-full font-semibold hover:bg-red-200 transition">
-                            Delete
-                          </button>
-                        )}
-                      </div>
+
+                      {/* Collapsible note panel */}
+                      {hasNote && noteOpen && (
+                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3">
+                          <p className="font-semibold text-xs text-yellow-700 mb-1 uppercase tracking-wide">
+                            Student Note
+                          </p>
+                          <p className="text-sm text-yellow-900 leading-relaxed">
+                            {renderNote(slot.studentNote)}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -622,7 +669,7 @@ const TutorAvailability = () => {
 
       </div>
 
-      {/* ── Manual Booking Modal ─────────────────────────────────── */}
+      {/* ── Manual Booking Modal ──────────────────────────────────────── */}
       {manualOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4" onMouseUp={(e) => e.stopPropagation()}>
           <div
@@ -694,7 +741,7 @@ const TutorAvailability = () => {
         </div>
       )}
 
-      {/* ── Settings Sidebar ─────────────────────────────────────── */}
+      {/* ── Settings Sidebar ──────────────────────────────────────────── */}
       {settingsOpen && (
         <div className="fixed inset-0 z-50 flex justify-end" onMouseUp={(e) => e.stopPropagation()}>
           {/* Backdrop */}
@@ -802,7 +849,7 @@ const TutorAvailability = () => {
 
               <hr className="border-gray-100" />
 
-              {/* Copy Schedule (day to day) */}
+              {/* Copy Schedule */}
               <section>
                 <h3 className="text-sm font-bold text-gray-800 mb-2">📋 Copy Day</h3>
                 <p className="text-xs text-gray-400 mb-3">Copy one day's slots onto another day.</p>

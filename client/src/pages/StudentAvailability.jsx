@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 const API = import.meta.env.VITE_API_URL
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 const HOUR_START  = 8
 const HOUR_END    = 22
@@ -51,6 +52,7 @@ const formatDisplay = (dateStr) => {
 
 const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
+// ─── BookingNote sub-component ────────────────────────────────────────────────
 const BookingNote = ({ slot, token, onSaved }) => {
   const [editing, setEditing] = useState(false)
   const [text, setText]       = useState(slot.studentNote || '')
@@ -127,6 +129,7 @@ const BookingNote = ({ slot, token, onSaved }) => {
   )
 }
 
+// ─── Main component ───────────────────────────────────────────────────────────
 const StudentAvailability = () => {
   const { user, token } = useAuth()
   const authHeader = token ? { headers: { Authorization: `Bearer ${token}` } } : {}
@@ -154,11 +157,15 @@ const StudentAvailability = () => {
   const flashSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3500) }
   const flashError   = (msg) => { setError(msg);   setTimeout(() => setError(''),   3500) }
 
+  // ── THE FIX: authHeader is now passed so the backend can identify
+  //    the student via tryGetStudentTutorId and return only their
+  //    assigned tutor's slots instead of every tutor's slots.
   const fetchSlots = async () => {
     try {
       setLoading(true)
       const res = await axios.get(
-        `${API}/api/availability?weekStart=${formatDate(weekStart)}`
+        `${API}/api/availability?weekStart=${formatDate(weekStart)}`,
+        authHeader // <-- THIS was the missing line
       )
       setSlots(res.data)
     } catch (err) {
@@ -364,9 +371,8 @@ const StudentAvailability = () => {
                   {weekDates.map((date) => {
                     const slotsHere = getSlotsAt(date, time)
 
-                    const availableHere = slotsHere.filter(s => s.slotType === 'available')
-
-                    const nonAvailHere = slotsHere.filter(s => s.slotType !== 'available')
+                    const availableHere    = slotsHere.filter(s => s.slotType === 'available')
+                    const nonAvailHere     = slotsHere.filter(s => s.slotType !== 'available')
                     const nonAvailStarting = nonAvailHere.filter(s => s.startTime === time)
 
                     const inHoverBlock =
@@ -389,18 +395,18 @@ const StudentAvailability = () => {
                         onClick={() => handleStudentClick(date, time)}
                       >
                         {availableHere.map((s) => {
-                          const isHovered = inHoverBlock
+                          const isHovered   = inHoverBlock
                           const isTopRow    = s.startTime === time
                           const lastRowTime = toTime(toMins(s.endTime) - SLOT_MINS)
                           const isBottomRow = lastRowTime === time
-                          const spanH = spanCells(s)
+                          const spanH       = spanCells(s)
 
                           return (
                             <div
                               key={s._id}
                               className="absolute top-0 bottom-0 left-0 right-0"
                               style={{
-                                background: isHovered ? SLOT_COLOUR.bgHover : SLOT_COLOUR.bg,
+                                background:   isHovered ? SLOT_COLOUR.bgHover : SLOT_COLOUR.bg,
                                 borderLeft:   `1.5px solid ${SLOT_COLOUR.border}`,
                                 borderRight:  `1.5px solid ${SLOT_COLOUR.border}`,
                                 borderTop:    isTopRow    ? `1.5px solid ${SLOT_COLOUR.border}` : 'none',
