@@ -5,10 +5,10 @@ import { useAuth } from '../context/AuthContext'
 const API = import.meta.env.VITE_API_URL
 
 const PROGRESS_STAGES = [
-  { value: 'just-started',         label: 'Just Started',         colour: 'bg-gray-100 text-gray-600' },
-  { value: 'building-foundations', label: 'Building Foundations', colour: 'bg-blue-100 text-blue-700' },
+  { value: 'just-started',         label: 'Just Started',         colour: 'bg-gray-100 text-gray-600'    },
+  { value: 'building-foundations', label: 'Building Foundations', colour: 'bg-blue-100 text-blue-700'    },
   { value: 'making-progress',      label: 'Making Progress',      colour: 'bg-yellow-100 text-yellow-700' },
-  { value: 'on-track',             label: 'On Track',             colour: 'bg-green-100 text-green-700' },
+  { value: 'on-track',             label: 'On Track',             colour: 'bg-green-100 text-green-700'  },
   { value: 'exam-ready',           label: 'Exam Ready',           colour: 'bg-purple-100 text-purple-700' },
   { value: 'completed',            label: 'Completed',            colour: 'bg-emerald-100 text-emerald-700' },
 ]
@@ -34,28 +34,165 @@ const getStageColour = (value) =>
 const getStageLabel = (value) =>
   PROGRESS_STAGES.find(s => s.value === value)?.label ?? 'Just Started'
 
-// ─── Tiny reusable bar chart ──────────────────────────────────────────────────
-const BarChart = ({ data, labelKey, countKey, barColour = 'bg-blue-500', labelShort }) => {
-  const max = Math.max(...data.map(d => d[countKey]), 1)
+const fmtMonth = (key) => {
+  const [y, m] = key.split('-')
+  return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m, 10) - 1]} ${y.slice(2)}`
+}
+
+// ─── SVG Bar Chart ────────────────────────────────────────────────────────────
+const SvgBarChart = ({ data, labelKey, countKey, barColour = '#3b82f6', labelShort, height = 140 }) => {
+  const max    = Math.max(...data.map(d => d[countKey]), 1)
+  const W      = 500
+  const H      = height
+  const padL   = 28
+  const padB   = 32
+  const padT   = 10
+  const padR   = 8
+  const chartW = W - padL - padR
+  const chartH = H - padB - padT
+  const barW   = Math.max(4, (chartW / data.length) * 0.55)
+  const gap    = chartW / data.length
+
+  const gridLines = [0, 0.25, 0.5, 0.75, 1]
+
   return (
-    <div className="flex flex-col gap-2">
-      {data.map((d, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <span className="text-xs text-gray-500 w-24 shrink-0 truncate">
-            {labelShort ? labelShort(d) : d[labelKey]}
-          </span>
-          <div className="flex-1 bg-gray-100 rounded-full h-2">
-            <div
-              className={`${barColour} h-2 rounded-full transition-all duration-500`}
-              style={{ width: `${(d[countKey] / max) * 100}%` }}
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height }}>
+      {/* Grid lines */}
+      {gridLines.map(f => {
+        const y = padT + chartH - f * chartH
+        return (
+          <g key={f}>
+            <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="#f3f4f6" strokeWidth="1" />
+            <text x={padL - 4} y={y + 4} textAnchor="end" fontSize="9" fill="#9ca3af">
+              {Math.round(f * max)}
+            </text>
+          </g>
+        )
+      })}
+
+      {/* Bars */}
+      {data.map((d, i) => {
+        const barH = Math.max(2, (d[countKey] / max) * chartH)
+        const x    = padL + i * gap + gap / 2 - barW / 2
+        const y    = padT + chartH - barH
+        const label = labelShort ? labelShort(d) : d[labelKey]
+        return (
+          <g key={i}>
+            <rect
+              x={x} y={y}
+              width={barW} height={barH}
+              rx="3"
+              fill={barColour}
+              opacity="0.85"
             />
-          </div>
-          <span className="text-xs font-bold text-gray-600 w-5 text-right shrink-0">
-            {d[countKey]}
-          </span>
-        </div>
+            {d[countKey] > 0 && (
+              <text x={x + barW / 2} y={y - 3} textAnchor="middle" fontSize="9" fill="#6b7280">
+                {d[countKey]}
+              </text>
+            )}
+            <text
+              x={x + barW / 2}
+              y={padT + chartH + 14}
+              textAnchor="middle"
+              fontSize="9"
+              fill="#9ca3af"
+            >
+              {label}
+            </text>
+          </g>
+        )
+      })}
+
+      {/* X axis */}
+      <line x1={padL} x2={W - padR} y1={padT + chartH} y2={padT + chartH} stroke="#e5e7eb" strokeWidth="1" />
+    </svg>
+  )
+}
+
+// ─── SVG Line Chart ───────────────────────────────────────────────────────────
+const SvgLineChart = ({ data, labelKey, countKey, lineColour = '#3b82f6', labelShort, height = 140 }) => {
+  if (!data || data.length < 2) return (
+    <p className="text-sm text-gray-400 text-center py-6">Not enough data yet</p>
+  )
+
+  const max    = Math.max(...data.map(d => d[countKey]), 1)
+  const W      = 500
+  const H      = height
+  const padL   = 28
+  const padB   = 32
+  const padT   = 10
+  const padR   = 8
+  const chartW = W - padL - padR
+  const chartH = H - padB - padT
+
+  const pts = data.map((d, i) => ({
+    x: padL + (i / (data.length - 1)) * chartW,
+    y: padT + chartH - (d[countKey] / max) * chartH,
+    d,
+  }))
+
+  const polyline = pts.map(p => `${p.x},${p.y}`).join(' ')
+
+  // Filled area path
+  const areaPath = [
+    `M ${pts[0].x} ${padT + chartH}`,
+    ...pts.map(p => `L ${p.x} ${p.y}`),
+    `L ${pts[pts.length - 1].x} ${padT + chartH}`,
+    'Z',
+  ].join(' ')
+
+  const gridLines = [0, 0.5, 1]
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ height }}>
+      <defs>
+        <linearGradient id={`grad-${lineColour.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor={lineColour} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={lineColour} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      {gridLines.map(f => {
+        const y = padT + chartH - f * chartH
+        return (
+          <g key={f}>
+            <line x1={padL} x2={W - padR} y1={y} y2={y} stroke="#f3f4f6" strokeWidth="1" />
+            <text x={padL - 4} y={y + 4} textAnchor="end" fontSize="9" fill="#9ca3af">
+              {Math.round(f * max)}
+            </text>
+          </g>
+        )
+      })}
+
+      {/* Area fill */}
+      <path d={areaPath} fill={`url(#grad-${lineColour.replace('#','')})`} />
+
+      {/* Line */}
+      <polyline points={polyline} fill="none" stroke={lineColour} strokeWidth="2" strokeLinejoin="round" />
+
+      {/* Dots + labels */}
+      {pts.map((p, i) => (
+        <g key={i}>
+          <circle cx={p.x} cy={p.y} r="3" fill={lineColour} />
+          {p.d[countKey] > 0 && (
+            <text x={p.x} y={p.y - 6} textAnchor="middle" fontSize="9" fill="#6b7280">
+              {p.d[countKey]}
+            </text>
+          )}
+          <text
+            x={p.x}
+            y={padT + chartH + 14}
+            textAnchor="middle"
+            fontSize="9"
+            fill="#9ca3af"
+          >
+            {labelShort ? labelShort(p.d) : p.d[labelKey]}
+          </text>
+        </g>
       ))}
-    </div>
+
+      <line x1={padL} x2={W - padR} y1={padT + chartH} y2={padT + chartH} stroke="#e5e7eb" strokeWidth="1" />
+    </svg>
   )
 }
 
@@ -145,7 +282,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
     completed.reduce((acc, s) => acc + (s.lessonLength ?? 60), 0) / 60
   ).toFixed(1)
 
-  const decided = sessions.filter(s => s.status !== 'upcoming')
+  const decided        = sessions.filter(s => s.status !== 'upcoming')
   const completionRate = decided.length
     ? Math.round((completed.length / decided.length) * 100)
     : null
@@ -257,16 +394,15 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
         {/* Body */}
         <div className="overflow-y-auto flex-1 p-6 flex flex-col gap-6">
 
-          {/* ── OVERVIEW TAB ── */}
           {tab === 'overview' && (
             <>
               {/* Stat pills */}
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { icon: '📅', label: 'Upcoming',       val: upcoming.length,  bg: 'bg-blue-50',   num: 'text-blue-700'  },
-                  { icon: '✅', label: 'Completed',      val: completed.length, bg: 'bg-green-50',  num: 'text-green-700' },
-                  { icon: '🚫', label: 'No Shows',       val: noShows.length,   bg: 'bg-red-50',    num: 'text-red-500'   },
-                  { icon: '🕐', label: 'Hours Taught',   val: totalHours,       bg: 'bg-amber-50',  num: 'text-amber-600' },
+                  { icon: '📅', label: 'Upcoming',     val: upcoming.length,  bg: 'bg-blue-50',  num: 'text-blue-700'  },
+                  { icon: '✅', label: 'Completed',    val: completed.length, bg: 'bg-green-50', num: 'text-green-700' },
+                  { icon: '🚫', label: 'No Shows',     val: noShows.length,   bg: 'bg-red-50',   num: 'text-red-500'   },
+                  { icon: '🕐', label: 'Hours Taught', val: totalHours,       bg: 'bg-amber-50', num: 'text-amber-600' },
                 ].map(({ icon, label, val, bg, num }) => (
                   <div key={label} className={`rounded-xl px-3 py-2.5 text-center ${bg}`}>
                     <p className="text-base">{icon}</p>
@@ -276,7 +412,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
                 ))}
               </div>
 
-              {/* Completion rate bar */}
+              {/* Completion rate */}
               {completionRate !== null && (
                 <div className="bg-gray-50 rounded-xl p-4">
                   <div className="flex justify-between items-center mb-2">
@@ -349,7 +485,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
 
               <hr className="border-gray-100" />
 
-              {/* Profile — VIEW mode */}
+              {/* Profile VIEW */}
               {!editing && (
                 <section>
                   <div className="flex items-center justify-between mb-3">
@@ -398,7 +534,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
                 </section>
               )}
 
-              {/* Profile — EDIT mode */}
+              {/* Profile EDIT */}
               {editing && (
                 <section>
                   <div className="flex items-center justify-between mb-4">
@@ -454,14 +590,14 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
             </>
           )}
 
-          {/* ── SESSIONS TAB ── */}
+          {/* Sessions Tab */}
           {tab === 'sessions' && (
             <section>
               <div className="grid grid-cols-3 gap-3 mb-5">
                 {[
-                  { icon: '📅', label: 'Upcoming',  val: upcoming.length,  bg: 'bg-blue-50',  num: 'text-blue-700' },
+                  { icon: '📅', label: 'Upcoming',  val: upcoming.length,  bg: 'bg-blue-50',  num: 'text-blue-700'  },
                   { icon: '✅', label: 'Completed', val: completed.length, bg: 'bg-green-50', num: 'text-green-700' },
-                  { icon: '🚫', label: 'No Shows',  val: noShows.length,   bg: 'bg-red-50',   num: 'text-red-500' },
+                  { icon: '🚫', label: 'No Shows',  val: noShows.length,   bg: 'bg-red-50',   num: 'text-red-500'   },
                 ].map(({ icon, label, val, bg, num }) => (
                   <div key={label} className={`rounded-xl px-3 py-2.5 text-center ${bg}`}>
                     <p className="text-base">{icon}</p>
@@ -510,7 +646,6 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
               )}
             </section>
           )}
-
         </div>
       </div>
     </div>
@@ -531,10 +666,11 @@ const Students = () => {
   const [selected, setSelected]           = useState(null)
   const [pageTab, setPageTab]             = useState('overview')
 
-  // ── Analytics state ───────────────────────────────────────────────────────
+  // ── Analytics ─────────────────────────────────────────────────────────────
   const [analytics, setAnalytics]               = useState(null)
   const [loadingAnalytics, setLoadingAnalytics] = useState(true)
   const [analyticsError, setAnalyticsError]     = useState('')
+  const [timeRange, setTimeRange]               = useState('all')
 
   const fetchStudents = async () => {
     try {
@@ -548,10 +684,12 @@ const Students = () => {
     }
   }
 
-  const fetchAnalytics = async () => {
+  const fetchAnalytics = async (range = 'all') => {
     try {
       setLoadingAnalytics(true)
-      const res = await axios.get(`${API}/api/students/analytics`, authHeader)
+      setAnalyticsError('')
+      const params = range !== 'all' ? `?days=${range}` : ''
+      const res = await axios.get(`${API}/api/students/analytics${params}`, authHeader)
       setAnalytics(res.data)
     } catch {
       setAnalyticsError('Failed to load analytics')
@@ -560,10 +698,12 @@ const Students = () => {
     }
   }
 
-  useEffect(() => {
-    fetchStudents()
-    fetchAnalytics()
-  }, [])
+  useEffect(() => { fetchStudents(); fetchAnalytics('all') }, [])
+
+  const handleTimeRange = (range) => {
+    setTimeRange(range)
+    fetchAnalytics(range)
+  }
 
   const handleProgressUpdate = (studentId, newStage) => {
     setStudents(prev => prev.map(s => s._id === studentId ? { ...s, progressStage: newStage } : s))
@@ -589,14 +729,9 @@ const Students = () => {
     const matchSearch  = s.name.toLowerCase().includes(search.toLowerCase()) ||
                          s.email.toLowerCase().includes(search.toLowerCase())
     const matchSubject = filterSubject === 'all' || (s.subjects || []).includes(filterSubject)
-    const matchStage   = filterStage === 'all' || (s.progressStage || 'just-started') === filterStage
+    const matchStage   = filterStage === 'all'   || (s.progressStage || 'just-started') === filterStage
     return matchSearch && matchSubject && matchStage
   })
-
-  // ── Overview stats derived from students list ─────────────────────────────
-  const totalBooked  = students.reduce((acc, s) => acc + (s.sessionStats?.booked    ?? 0), 0)
-  const totalDone    = students.reduce((acc, s) => acc + (s.sessionStats?.completed ?? 0), 0)
-  const totalNoShow  = students.reduce((acc, s) => acc + (s.sessionStats?.noShow    ?? 0), 0)
 
   const stageBreakdown = PROGRESS_STAGES.map(s => ({
     ...s,
@@ -615,29 +750,22 @@ const Students = () => {
     .filter(s => (s.sessionStats?.noShow ?? 0) > 0)
     .sort((a, b) => (b.sessionStats?.noShow ?? 0) - (a.sessionStats?.noShow ?? 0))
 
-  // ── Derived from analytics ─────────────────────────────────────────────────
-  // Format "2024-03" → "Mar 24"
-  const fmtMonth = (key) => {
-    const [y, m] = key.split('-')
-    return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(m,10)-1]} ${y.slice(2)}`
+  const last6 = (arr = []) => arr.slice(-6)
+
+  const daysBetweenData = analytics?.daysBetweenLastLesson ?? []
+
+  // Colour coding for days since last lesson
+  const riskColour = (days) => {
+    if (days >= 30) return { bg: 'bg-red-50 border-red-200',    badge: 'bg-red-100 text-red-700',    dot: 'bg-red-500'    }
+    if (days >= 14) return { bg: 'bg-amber-50 border-amber-200', badge: 'bg-amber-100 text-amber-700', dot: 'bg-amber-400'  }
+    return               { bg: 'bg-green-50 border-green-200',  badge: 'bg-green-100 text-green-700', dot: 'bg-green-500'  }
   }
-
-  // Busiest day (from analytics)
-  const busiestDay = analytics?.sessionsByDay
-    ?.reduce((best, d) => d.count > (best?.count ?? -1) ? d : best, null)
-
-  // Busiest hour (from analytics)
-  const busiestHour = analytics?.sessionsByHour
-    ?.reduce((best, d) => d.count > (best?.count ?? -1) ? d : best, null)
-
-  // Last 6 months only for trend charts
-  const last6Months = (arr = []) => arr.slice(-6)
 
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
       <div className="max-w-6xl mx-auto">
 
-        {/* Page Header */}
+        {/* Header */}
         <div className="mb-6 text-center">
           <h1 className="text-4xl font-extrabold text-gray-800 mb-2">👨‍🎓 Students</h1>
           <p className="text-gray-500 text-sm">
@@ -645,7 +773,7 @@ const Students = () => {
           </p>
         </div>
 
-        {/* Page-level Tabs */}
+        {/* Page Tabs */}
         <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 mb-8 shadow-sm max-w-sm mx-auto">
           {[
             { key: 'overview', label: '📊 Overview' },
@@ -655,9 +783,7 @@ const Students = () => {
               key={key}
               onClick={() => setPageTab(key)}
               className={`flex-1 py-2 text-sm font-semibold rounded-lg transition ${
-                pageTab === key
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
+                pageTab === key ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               {label}
@@ -684,18 +810,40 @@ const Students = () => {
             ) : (
               <>
                 {analyticsError && (
-                  <div className="mb-6 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm text-center">
+                  <div className="mb-4 bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm text-center">
                     {analyticsError}
                   </div>
                 )}
 
+                {/* Time range filter */}
+                <div className="flex justify-end mb-6">
+                  <div className="flex gap-1 bg-white border border-gray-200 rounded-xl p-1 shadow-sm">
+                    {[
+                      { key: '30',  label: '30d'  },
+                      { key: '90',  label: '90d'  },
+                      { key: '180', label: '6m'   },
+                      { key: 'all', label: 'All'  },
+                    ].map(({ key, label }) => (
+                      <button
+                        key={key}
+                        onClick={() => handleTimeRange(key)}
+                        className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
+                          timeRange === key ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 {/* ── Hero stat cards ── */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
                   {[
-                    { icon: '👨‍🎓', label: 'Total Students',    val: students.length,                   bg: 'bg-blue-50',   num: 'text-blue-700'   },
-                    { icon: '🕐', label: 'Total Hours Taught', val: analytics?.totalHours ?? '—',        bg: 'bg-amber-50',  num: 'text-amber-600'  },
-                    { icon: '✅', label: 'Sessions Completed', val: analytics?.completedCount ?? totalDone, bg: 'bg-green-50',  num: 'text-green-700'  },
-                    { icon: '🚫', label: 'Total No-Shows',     val: analytics?.noShowCount  ?? totalNoShow, bg: 'bg-red-50',    num: 'text-red-500'    },
+                    { icon: '👨‍🎓', label: 'Total Students',    val: students.length,                        bg: 'bg-blue-50',   num: 'text-blue-700'   },
+                    { icon: '🕐', label: 'Total Hours Taught', val: analytics?.totalHours         ?? '—',   bg: 'bg-amber-50',  num: 'text-amber-600'  },
+                    { icon: '✅', label: 'Sessions Completed', val: analytics?.completedCount      ?? '—',   bg: 'bg-green-50',  num: 'text-green-700'  },
+                    { icon: '📐', label: 'Avg Lesson Length',  val: analytics?.avgLessonLength ? `${analytics.avgLessonLength}m` : '—', bg: 'bg-violet-50', num: 'text-violet-700' },
                   ].map(({ icon, label, val, bg, num }) => (
                     <div key={label} className={`rounded-2xl p-5 text-center ${bg} border border-white shadow-sm`}>
                       <p className="text-2xl mb-1">{icon}</p>
@@ -705,10 +853,26 @@ const Students = () => {
                   ))}
                 </div>
 
-                {/* ── Completion rate + quick insights row ── */}
+                {/* ── Upcoming session load ── */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+                  <h2 className="text-base font-bold text-gray-700 mb-4">📅 Upcoming Session Load</h2>
+                  <div className="grid grid-cols-3 gap-4">
+                    {[
+                      { label: 'Next 7 days',  val: analytics?.upcomingNext7,  bg: 'bg-blue-50',   num: 'text-blue-700'   },
+                      { label: 'Next 14 days', val: analytics?.upcomingNext14, bg: 'bg-indigo-50', num: 'text-indigo-700' },
+                      { label: 'Next 30 days', val: analytics?.upcomingNext30, bg: 'bg-violet-50', num: 'text-violet-700' },
+                    ].map(({ label, val, bg, num }) => (
+                      <div key={label} className={`rounded-xl p-4 text-center ${bg}`}>
+                        <p className={`text-3xl font-extrabold ${num}`}>{val ?? '—'}</p>
+                        <p className="text-xs text-gray-500 mt-1 font-medium">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── Completion rate + busiest day + busiest time ── */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
 
-                  {/* Completion rate */}
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col justify-center">
                     <p className="text-sm font-bold text-gray-700 mb-2">🎯 Completion Rate</p>
                     {analytics?.completionRate != null ? (
@@ -737,46 +901,63 @@ const Students = () => {
                     )}
                   </div>
 
-                  {/* Busiest day */}
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col justify-center">
                     <p className="text-sm font-bold text-gray-700 mb-2">📆 Busiest Day</p>
-                    {busiestDay && busiestDay.count > 0 ? (
-                      <>
-                        <p className="text-3xl font-extrabold text-blue-700 mb-1">{busiestDay.day}</p>
-                        <p className="text-xs text-gray-400">{busiestDay.count} session{busiestDay.count !== 1 ? 's' : ''} booked</p>
-                      </>
-                    ) : (
-                      <p className="text-sm text-gray-400">No data yet</p>
-                    )}
+                    {(() => {
+                      const best = analytics?.sessionsByDay?.reduce((b, d) => d.count > (b?.count ?? -1) ? d : b, null)
+                      return best && best.count > 0 ? (
+                        <>
+                          <p className="text-3xl font-extrabold text-blue-700 mb-1">{best.day}</p>
+                          <p className="text-xs text-gray-400">{best.count} session{best.count !== 1 ? 's' : ''} booked</p>
+                        </>
+                      ) : <p className="text-sm text-gray-400">No data yet</p>
+                    })()}
                   </div>
 
-                  {/* Busiest time */}
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col justify-center">
                     <p className="text-sm font-bold text-gray-700 mb-2">🕑 Busiest Time</p>
-                    {busiestHour && busiestHour.count > 0 ? (
-                      <>
-                        <p className="text-3xl font-extrabold text-violet-700 mb-1">{busiestHour.label}</p>
-                        <p className="text-xs text-gray-400">{busiestHour.count} session{busiestHour.count !== 1 ? 's' : ''} at this hour</p>
-                      </>
-                    ) : (
-                      <p className="text-sm text-gray-400">No data yet</p>
-                    )}
+                    {(() => {
+                      const best = analytics?.sessionsByHour?.reduce((b, d) => d.count > (b?.count ?? -1) ? d : b, null)
+                      return best && best.count > 0 ? (
+                        <>
+                          <p className="text-3xl font-extrabold text-violet-700 mb-1">{best.label}</p>
+                          <p className="text-xs text-gray-400">{best.count} session{best.count !== 1 ? 's' : ''} at this hour</p>
+                        </>
+                      ) : <p className="text-sm text-gray-400">No data yet</p>
+                    })()}
                   </div>
                 </div>
 
-                {/* ── Chart row: Sessions by day + Sessions by hour ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                {/* ── Avg sessions per student ── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <p className="text-sm font-bold text-gray-700 mb-1">📊 Avg Sessions Per Student</p>
+                    <p className="text-xs text-gray-400 mb-3">Completed sessions ÷ total students</p>
+                    <p className="text-4xl font-extrabold text-blue-700">
+                      {analytics?.avgSessionsPerStudent ?? '—'}
+                    </p>
+                  </div>
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <p className="text-sm font-bold text-gray-700 mb-1">🚫 Total No-Shows</p>
+                    <p className="text-xs text-gray-400 mb-3">Across all students in selected range</p>
+                    <p className="text-4xl font-extrabold text-red-500">
+                      {analytics?.noShowCount ?? '—'}
+                    </p>
+                  </div>
+                </div>
 
+                {/* ── Sessions by day + sessions by hour ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                     <h2 className="text-base font-bold text-gray-700 mb-5">📅 Sessions by Day of Week</h2>
                     {(analytics?.sessionsByDay ?? []).every(d => d.count === 0) ? (
                       <p className="text-sm text-gray-400 text-center py-6">No session data yet</p>
                     ) : (
-                      <BarChart
+                      <SvgBarChart
                         data={analytics.sessionsByDay}
                         labelKey="day"
                         countKey="count"
-                        barColour="bg-blue-500"
+                        barColour="#3b82f6"
                         labelShort={d => d.day.slice(0, 3)}
                       />
                     )}
@@ -787,47 +968,80 @@ const Students = () => {
                     {(analytics?.sessionsByHour ?? []).length === 0 ? (
                       <p className="text-sm text-gray-400 text-center py-6">No session data yet</p>
                     ) : (
-                      <BarChart
+                      <SvgBarChart
                         data={analytics.sessionsByHour}
                         labelKey="label"
                         countKey="count"
-                        barColour="bg-violet-500"
+                        barColour="#8b5cf6"
                       />
                     )}
                   </div>
                 </div>
 
-                {/* ── Trend row: Completed sessions by month + New students by month ── */}
+                {/* ── Completed sessions by month + no-show rate by month ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                     <h2 className="text-base font-bold text-gray-700 mb-1">📈 Completed Sessions by Month</h2>
-                    <p className="text-xs text-gray-400 mb-5">Last 6 months</p>
-                    {(analytics?.sessionsByMonth ?? []).length === 0 ? (
-                      <p className="text-sm text-gray-400 text-center py-6">No completed sessions yet</p>
+                    <p className="text-xs text-gray-400 mb-4">Last 6 months</p>
+                    {(analytics?.sessionsByMonth ?? []).length < 2 ? (
+                      <p className="text-sm text-gray-400 text-center py-6">Not enough data yet</p>
                     ) : (
-                      <BarChart
-                        data={last6Months(analytics.sessionsByMonth)}
+                      <SvgLineChart
+                        data={last6(analytics.sessionsByMonth)}
                         labelKey="month"
                         countKey="count"
-                        barColour="bg-green-500"
+                        lineColour="#22c55e"
                         labelShort={d => fmtMonth(d.month)}
                       />
                     )}
                   </div>
 
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                    <h2 className="text-base font-bold text-gray-700 mb-1">🆕 New Students by Month</h2>
-                    <p className="text-xs text-gray-400 mb-5">Last 6 months</p>
-                    {(analytics?.newStudentsByMonth ?? []).length === 0 ? (
-                      <p className="text-sm text-gray-400 text-center py-6">No student data yet</p>
+                    <h2 className="text-base font-bold text-gray-700 mb-1">🚫 No-Show Rate by Month</h2>
+                    <p className="text-xs text-gray-400 mb-4">% of decided sessions that were no-shows</p>
+                    {(analytics?.noShowRateByMonth ?? []).length < 2 ? (
+                      <p className="text-sm text-gray-400 text-center py-6">Not enough data yet</p>
                     ) : (
-                      <BarChart
-                        data={last6Months(analytics.newStudentsByMonth)}
+                      <SvgLineChart
+                        data={last6(analytics.noShowRateByMonth)}
+                        labelKey="month"
+                        countKey="rate"
+                        lineColour="#ef4444"
+                        labelShort={d => fmtMonth(d.month)}
+                      />
+                    )}
+                  </div>
+                </div>
+
+                {/* ── New students by month + year group breakdown ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                    <h2 className="text-base font-bold text-gray-700 mb-1">🆕 New Students by Month</h2>
+                    <p className="text-xs text-gray-400 mb-4">Last 6 months</p>
+                    {(analytics?.newStudentsByMonth ?? []).length < 2 ? (
+                      <p className="text-sm text-gray-400 text-center py-6">Not enough data yet</p>
+                    ) : (
+                      <SvgLineChart
+                        data={last6(analytics.newStudentsByMonth)}
                         labelKey="month"
                         countKey="count"
-                        barColour="bg-teal-500"
+                        lineColour="#14b8a6"
                         labelShort={d => fmtMonth(d.month)}
+                      />
+                    )}
+                  </div>
+
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                    <h2 className="text-base font-bold text-gray-700 mb-5">🏫 Year Group Breakdown</h2>
+                    {(analytics?.yearGroupBreakdown ?? []).length === 0 ? (
+                      <p className="text-sm text-gray-400 text-center py-6">No year group data yet</p>
+                    ) : (
+                      <SvgBarChart
+                        data={analytics.yearGroupBreakdown}
+                        labelKey="yearGroup"
+                        countKey="count"
+                        barColour="#f59e0b"
+                        labelShort={d => d.yearGroup.length > 6 ? d.yearGroup.slice(0, 6) + '…' : d.yearGroup}
                       />
                     )}
                   </div>
@@ -835,7 +1049,6 @@ const Students = () => {
 
                 {/* ── Progress & Subject breakdown ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
                     <h2 className="text-base font-bold text-gray-700 mb-5">📊 Progress Breakdown</h2>
                     {students.length === 0 ? (
@@ -889,9 +1102,84 @@ const Students = () => {
                   </div>
                 </div>
 
+                {/* ── Most active students leaderboard ── */}
+                {(analytics?.mostActiveStudents ?? []).length > 0 && (
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+                    <h2 className="text-base font-bold text-gray-700 mb-4">🏆 Most Active Students</h2>
+                    <div className="flex flex-col gap-2">
+                      {analytics.mostActiveStudents.map((s, i) => (
+                        <div
+                          key={s._id}
+                          onClick={() => setSelected(students.find(st => st._id === s._id))}
+                          className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group"
+                        >
+                          <span className={`text-sm font-extrabold w-6 text-center shrink-0 ${
+                            i === 0 ? 'text-amber-500' :
+                            i === 1 ? 'text-gray-400'  :
+                            i === 2 ? 'text-amber-700' : 'text-gray-300'
+                          }`}>
+                            {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-bold text-gray-800 truncate group-hover:text-blue-700 transition">
+                              {s.name}
+                            </p>
+                            <p className="text-xs text-gray-400 truncate">{s.email}</p>
+                          </div>
+                          <span className="shrink-0 text-xs font-bold text-green-700 bg-green-100 px-2.5 py-1 rounded-full">
+                            {s.sessions} session{s.sessions !== 1 ? 's' : ''}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Days between last lesson panel ── */}
+                {daysBetweenData.length > 0 && (
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <h2 className="text-base font-bold text-gray-700">📆 Days Since Last Lesson</h2>
+                      <div className="flex items-center gap-3 text-xs text-gray-400">
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> &lt;14d</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-400 inline-block" /> 14–29d</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> 30d+</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400 mb-4">Students sorted by longest gap first</p>
+                    <div className="flex flex-col gap-2">
+                      {daysBetweenData.map(s => {
+                        const { bg, badge, dot } = riskColour(s.daysSince)
+                        return (
+                          <div
+                            key={s._id}
+                            onClick={() => setSelected(students.find(st => st._id === s._id))}
+                            className={`flex items-center justify-between px-4 py-3 rounded-xl border cursor-pointer hover:opacity-80 transition group ${bg}`}
+                          >
+                            <div className="flex items-center gap-3 min-w-0">
+                              <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
+                              <div className="min-w-0">
+                                <p className="text-sm font-bold text-gray-800 truncate group-hover:text-blue-700 transition">
+                                  {s.name}
+                                </p>
+                                <p className="text-xs text-gray-400">
+                                  Last lesson: {s.lastDate}
+                                </p>
+                              </div>
+                            </div>
+                            <span className={`ml-3 shrink-0 text-xs font-bold px-2.5 py-1 rounded-full ${badge}`}>
+                              {s.daysSince}d ago
+                            </span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* ── No-show attention panel ── */}
                 {noShowStudents.length > 0 && (
-                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 mb-6">
                     <h2 className="text-base font-bold text-gray-700 mb-4">⚠️ Students with No-Shows</h2>
                     <div className="flex flex-col gap-2">
                       {noShowStudents.map(s => (
@@ -1036,9 +1324,7 @@ const Students = () => {
 
                       <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between text-xs text-gray-400">
                         <span>{student.school || student.yearGroup || '—'}</span>
-                        <span className="text-blue-500 font-medium group-hover:underline">
-                          View
-                        </span>
+                        <span className="text-blue-500 font-medium group-hover:underline">View details →</span>
                       </div>
                     </div>
                   )

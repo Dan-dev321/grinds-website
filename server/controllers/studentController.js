@@ -13,16 +13,16 @@ const getMe = async (req, res) => {
     if (!student) return res.status(404).json({ message: 'Student not found' })
 
     res.json({
-      _id:        student._id,
-      name:       student.name,
-      email:      student.email,
-      phone:      student.phone,
-      school:     student.school,
-      yearGroup:  student.yearGroup,
-      subjects:   student.subjects,
-      examBoard:  student.examBoard,
-      goals:      student.goals,
-      createdAt:  student.createdAt,
+      _id:       student._id,
+      name:      student.name,
+      email:     student.email,
+      phone:     student.phone,
+      school:    student.school,
+      yearGroup: student.yearGroup,
+      subjects:  student.subjects,
+      examBoard: student.examBoard,
+      goals:     student.goals,
+      createdAt: student.createdAt,
       tutor: {
         name:         student.tutorId?.name,
         businessName: student.tutorId?.businessName,
@@ -202,30 +202,69 @@ const updateStudentProfile = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/students/analytics  (tutor auth)
-// Returns aggregate data for the tutor's Overview analytics panel
 // ─────────────────────────────────────────────────────────────────────────────
 const getStudentAnalytics = async (req, res) => {
   try {
+    // ── Optional time range filter via ?days=30|90|180|all ───────────────────
+    const { days } = req.query
+    const cutoff = days && days !== 'all'
+      ? new Date(Date.now() - parseInt(days, 10) * 24 * 60 * 60 * 1000)
+        .toISOString().slice(0, 10)          // "YYYY-MM-DD" string for comparison
+      : null
+
     const students = await Student.find({ tutorId: req.user._id, isActive: true })
-      .select('_id createdAt')
+      .select('_id name email yearGroup createdAt')
 
     const studentIds = students.map(s => s._id)
 
-    const sessions = await Availability.find({
+    // All booked sessions — optionally filtered by date cutoff
+    const sessionQuery = {
       bookedBy: { $in: studentIds },
       slotType: 'booked',
-    }).select('date dayOfWeek startTime status lessonLength')
+      ...(cutoff && { date: { $gte: cutoff } }),
+    }
+
+    const sessions = await Availability.find(sessionQuery)
+      .select('date dayOfWeek startTime status lessonLength bookedBy bufferMinutes')
+
+    // ── Upcoming sessions in next 7 / 14 / 30 days ───────────────────────────
+    const today     = new Date().toISOString().slice(0, 10)
+    const in7days   = new Date(Date.now() +  7 * 86400000).toISOString().slice(0, 10)
+    const in14days  = new Date(Date.now() + 14 * 86400000).toISOString().slice(0, 10)
+    const in30days  = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
+
+    // Query upcoming separately (always all-time — not affected by range filter)
+    const upcomingSessions = await Availability.find({
+      tutor:    req.user._id,
+      slotType: 'booked',
+      status:   'upcoming',
+      date:     { $gte: today },
+    }).select('date bookedBy lessonLength')
+
+    const upcomingNext7  = upcomingSessions.filter(s => s.date <= in7days).length
+    const upcomingNext14 = upcomingSessions.filter(s => s.date <= in14days).length
+    const upcomingNext30 = upcomingSessions.filter(s => s.date <= in30days).length
 
     // ── Hours taught ──────────────────────────────────────────────────────────
-    const totalMinutes = sessions
-      .filter(s => s.status === 'completed')
-      .reduce((acc, s) => acc + (s.lessonLength ?? 60), 0)
+    const completedSessions = sessions.filter(s => s.status === 'completed')
+    const totalMinutes      = completedSessions.reduce((acc, s) => acc + (s.lessonLength ?? 60), 0)
+
+    // ── Average lesson length ─────────────────────────────────────────────────
+    const avgLessonLength = completedSessions.length
+      ? +(completedSessions.reduce((acc, s) => acc + (s.lessonLength ?? 60), 0) / completedSessions.length).toFixed(0)
+      : null
 
     // ── Completion rate ───────────────────────────────────────────────────────
     const decided        = sessions.filter(s => s.status !== 'upcoming')
     const completedCount = decided.filter(s => s.status === 'completed').length
+    const noShowCount    = decided.filter(s => s.status === 'no-show').length
     const completionRate = decided.length
       ? Math.round((completedCount / decided.length) * 100)
+      : null
+
+    // ── Avg sessions per student ──────────────────────────────────────────────
+    const avgSessionsPerStudent = students.length
+      ? +(completedSessions.length / students.length).toFixed(1)
       : null
 
     // ── Sessions per day of week ──────────────────────────────────────────────
@@ -254,7 +293,7 @@ const getStudentAnalytics = async (req, res) => {
 
     // ── Completed sessions by month ───────────────────────────────────────────
     const monthMap = {}
-    for (const s of sessions.filter(s => s.status === 'completed')) {
+    for (const s of completedSessions) {
       const [year, month] = s.date.split('-')
       const key = `${year}-${month}`
       monthMap[key] = (monthMap[key] ?? 0) + 1
@@ -262,6 +301,26 @@ const getStudentAnalytics = async (req, res) => {
     const sessionsByMonth = Object.entries(monthMap)
       .map(([key, count]) => ({ month: key, count }))
       .sort((a, b) => a.month.localeCompare(b.month))
+
+    // ── No-show rate by month ─────────────────────────────────────────────────
+    const noShowMonthMap = {}
+    const decidedMonthMap = {}
+    for (const s of decided) {
+      const [year, month] = s.date.split('-')
+      const key = `${year}-${month}`
+      decidedMonthMap[key] = (decidedMonthMap[key] ?? 0) + 1
+      if (s.status === 'no-show') {
+        noShowMonthMap[key] = (noShowMonthMap[key] ?? 0) + 1
+      }
+    }
+    const noShowRateByMonth = Object.keys(decidedMonthMap)
+      .sort()
+      .map(key => ({
+        month:   key,
+        rate:    Math.round(((noShowMonthMap[key] ?? 0) / decidedMonthMap[key]) * 100),
+        noShows: noShowMonthMap[key] ?? 0,
+        total:   decidedMonthMap[key],
+      }))
 
     // ── New students by month ─────────────────────────────────────────────────
     const newStudentMap = {}
@@ -274,17 +333,89 @@ const getStudentAnalytics = async (req, res) => {
       .map(([key, count]) => ({ month: key, count }))
       .sort((a, b) => a.month.localeCompare(b.month))
 
+    // ── Year group breakdown ──────────────────────────────────────────────────
+    const yearGroupMap = {}
+    for (const s of students) {
+      const yg = s.yearGroup?.trim() || 'Unknown'
+      yearGroupMap[yg] = (yearGroupMap[yg] ?? 0) + 1
+    }
+    const yearGroupBreakdown = Object.entries(yearGroupMap)
+      .map(([yearGroup, count]) => ({ yearGroup, count }))
+      .sort((a, b) => b.count - a.count)
+
+    // ── Most active students (by completed sessions) ──────────────────────────
+    const studentSessionMap = {}
+    for (const s of completedSessions) {
+      const id = s.bookedBy.toString()
+      studentSessionMap[id] = (studentSessionMap[id] ?? 0) + 1
+    }
+    const mostActiveStudents = students
+      .map(s => ({
+        _id:      s._id,
+        name:     s.name,
+        email:    s.email,
+        sessions: studentSessionMap[s._id.toString()] ?? 0,
+      }))
+      .filter(s => s.sessions > 0)
+      .sort((a, b) => b.sessions - a.sessions)
+      .slice(0, 5)
+
+    // ── Days between last lesson per student ──────────────────────────────────
+    // Use ALL completed sessions regardless of range filter for last-seen accuracy
+    const allCompletedSessions = await Availability.find({
+      bookedBy: { $in: studentIds },
+      slotType: 'booked',
+      status:   'completed',
+    }).select('date bookedBy')
+
+    const lastSessionMap = {}
+    for (const s of allCompletedSessions) {
+      const id = s.bookedBy.toString()
+      if (!lastSessionMap[id] || s.date > lastSessionMap[id]) {
+        lastSessionMap[id] = s.date
+      }
+    }
+
+    const todayStr = new Date().toISOString().slice(0, 10)
+    const daysBetweenLastLesson = students
+      .map(s => {
+        const lastDate = lastSessionMap[s._id.toString()]
+        if (!lastDate) return { _id: s._id, name: s.name, email: s.email, lastDate: null, daysSince: null }
+        const diff = Math.floor(
+          (new Date(todayStr) - new Date(lastDate)) / 86400000
+        )
+        return { _id: s._id, name: s.name, email: s.email, lastDate, daysSince: diff }
+      })
+      .filter(s => s.daysSince !== null)
+      .sort((a, b) => b.daysSince - a.daysSince)
+
     res.json({
+      // ── Top-level numbers ──
+      totalStudents:        students.length,
       totalMinutes,
-      totalHours:      +(totalMinutes / 60).toFixed(1),
+      totalHours:           +(totalMinutes / 60).toFixed(1),
+      avgLessonLength,
       completionRate,
-      totalSessions:   sessions.length,
       completedCount,
-      noShowCount:     decided.length - completedCount,
+      noShowCount,
+      avgSessionsPerStudent,
+
+      // ── Upcoming load ──
+      upcomingNext7,
+      upcomingNext14,
+      upcomingNext30,
+
+      // ── Charts ──
       sessionsByDay,
       sessionsByHour,
       sessionsByMonth,
+      noShowRateByMonth,
       newStudentsByMonth,
+      yearGroupBreakdown,
+
+      // ── Leaderboard & risk ──
+      mostActiveStudents,
+      daysBetweenLastLesson,
     })
   } catch (err) {
     console.error('getStudentAnalytics error:', err)
