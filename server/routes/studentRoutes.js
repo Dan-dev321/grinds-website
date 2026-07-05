@@ -15,6 +15,7 @@ const {
 } = require('../controllers/studentController')
 
 // ── Student-facing ────────────────────────────────────────────────────────────
+router.get('/me',   protect, studentOnly, getMe)          // ← add this
 router.get('/mine', protect, studentOnly, getMySessions)
 
 // ── Tutor-facing — static paths BEFORE /:id ───────────────────────────────────

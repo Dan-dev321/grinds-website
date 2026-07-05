@@ -12,7 +12,7 @@ const app = express()
 // ========================
 const allowedOrigins = [
   'http://localhost:5173',
-  'https://grinds-website.vercel.app'
+  'https://grinds-website-flame.vercel.app'
 ]
 
 app.use(cors({
