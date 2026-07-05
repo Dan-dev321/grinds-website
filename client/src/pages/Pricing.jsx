@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
+const API = import.meta.env.VITE_API_URL
+
 const ALL_FEATURES = [
   'Unlimited students',
   'Smart scheduling calendar',
@@ -80,7 +82,7 @@ const FAQ = [
 ]
 
 const Pricing = () => {
-  const { user } = useAuth()
+  const { user, token } = useAuth()   // ← token pulled directly from context
   const navigate  = useNavigate()
   const location  = useLocation()
 
@@ -88,28 +90,25 @@ const Pricing = () => {
   const [error, setError]             = useState(null)
   const [openFaq, setOpenFaq]         = useState(null)
 
-  // Detect ?cancelled=true coming back from Stripe
   const cancelled = new URLSearchParams(location.search).get('cancelled') === 'true'
 
   const handleChoosePlan = async (planId) => {
-    // Not logged in → send to register
     if (!user) {
       navigate('/register')
       return
     }
 
-    // Not a tutor → nothing to bill
     if (user.role !== 'tutor') return
 
     setLoadingPlan(planId)
     setError(null)
 
     try {
-      const res = await fetch('/api/stripe/checkout', {
+      const res = await fetch(`${API}/api/stripe/checkout`, {  // ← API base URL added
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${user.token}`,
+          Authorization: `Bearer ${token}`,                    // ← token from useAuth, not user.token
         },
         body: JSON.stringify({ plan: planId }),
       })
@@ -121,7 +120,6 @@ const Pricing = () => {
         return
       }
 
-      // Redirect to Stripe Checkout
       window.location.href = data.url
     } catch (err) {
       setError('Network error. Please check your connection and try again.')
@@ -189,24 +187,20 @@ const Pricing = () => {
                 }`}
               >
 
-                {/* Badge */}
                 {plan.badge && (
                   <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-accent-500 text-white text-xs font-bold px-3 py-1 rounded-full whitespace-nowrap">
                     {plan.badge}
                   </span>
                 )}
 
-                {/* Plan name */}
                 <h3 className={`font-bold text-lg mb-1 ${plan.highlight ? 'text-white' : 'text-gray-900'}`}>
                   {plan.name}
                 </h3>
 
-                {/* Billed line */}
                 <p className={`text-xs mb-1 ${plan.highlight ? 'text-brand-200' : 'text-gray-400'}`}>
                   {plan.billed}
                 </p>
 
-                {/* Saving badge */}
                 {plan.saving && (
                   <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full mb-4 w-fit ${
                     plan.highlight ? 'bg-accent-500 text-white' : 'bg-emerald-100 text-emerald-700'
@@ -216,7 +210,6 @@ const Pricing = () => {
                 )}
                 {!plan.saving && <div className="mb-4 h-[22px]" />}
 
-                {/* Price */}
                 <div className="flex items-end gap-1 mt-2 mb-6">
                   <span className={`text-4xl font-extrabold ${plan.highlight ? 'text-white' : 'text-gray-900'}`}>
                     €{plan.price}
@@ -226,7 +219,6 @@ const Pricing = () => {
                   </span>
                 </div>
 
-                {/* Full-access callout instead of a feature list */}
                 <div
                   className={`flex items-start gap-3 rounded-xl px-4 py-3 mb-8 flex-grow ${
                     plan.highlight ? 'bg-brand-700/50' : 'bg-brand-50'
@@ -241,7 +233,6 @@ const Pricing = () => {
                   </p>
                 </div>
 
-                {/* CTA */}
                 <button
                   onClick={() => handleChoosePlan(plan.id)}
                   disabled={loadingPlan !== null}
@@ -269,7 +260,7 @@ const Pricing = () => {
         </div>
       </section>
 
-      {/* ── EVERYTHING INCLUDED (replaces comparison table) ──── */}
+      {/* ── EVERYTHING INCLUDED ──────────────────────────────── */}
       <section className="py-20 px-4 bg-white">
         <div className="max-w-4xl mx-auto">
 

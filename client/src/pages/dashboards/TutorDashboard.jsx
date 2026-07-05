@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../../context/AuthContext'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 
 const API = import.meta.env.VITE_API_URL
@@ -38,16 +38,42 @@ const StatusPill = ({ status }) => {
 
 const TutorDashboard = () => {
   const { user, token } = useAuth()
+  const navigate = useNavigate()
   const authHeader = { headers: { Authorization: `Bearer ${token}` } }
 
-  const [slots, setSlots]     = useState([])
-  const [loading, setLoading] = useState(true)
-  const [success, setSuccess] = useState('')
-  const [error, setError]     = useState('')
-  const [showPast, setShowPast] = useState(false)
+  const [slots, setSlots]         = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [subChecked, setSubChecked] = useState(false)  // ← gate flag
+  const [success, setSuccess]     = useState('')
+  const [error, setError]         = useState('')
+  const [showPast, setShowPast]   = useState(false)
 
   const flashSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3500) }
   const flashError   = (msg) => { setError(msg);   setTimeout(() => setError(''),   3500) }
+
+  // ── SUBSCRIPTION GATE — runs once on mount ────────────────────
+  useEffect(() => {
+    const checkSubscription = async () => {
+      try {
+        const res = await axios.get(`${API}/api/stripe/status`, authHeader)
+        const { status } = res.data
+
+        if (status === 'trial_expired' || status === 'cancelled') {
+          navigate('/pricing', { replace: true })
+          return
+        }
+
+        // active or trial → allow through
+        setSubChecked(true)
+      } catch (err) {
+        // If the check itself fails (network, 401, etc.) block access — fail safe
+        console.error('Subscription check failed:', err)
+        navigate('/pricing', { replace: true })
+      }
+    }
+
+    checkSubscription()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchData = async () => {
     try {
@@ -65,7 +91,10 @@ const TutorDashboard = () => {
     }
   }
 
-  useEffect(() => { fetchData() }, [])
+  // ── Only fetch dashboard data AFTER subscription is confirmed ──
+  useEffect(() => {
+    if (subChecked) fetchData()
+  }, [subChecked]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Actions ───────────────────────────────────────────────────
   const handleUnbook = async (slotId) => {
@@ -111,6 +140,18 @@ const TutorDashboard = () => {
     }
   }
 
+  // ── Block render until subscription confirmed ─────────────────
+  if (!subChecked) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center text-gray-400">
+          <div className="text-4xl mb-3 animate-pulse">🔐</div>
+          <p className="text-sm font-medium">Checking your subscription…</p>
+        </div>
+      </div>
+    )
+  }
+
   // ── Derived data ──────────────────────────────────────────────
   const todayStr    = toDateStr(new Date())
   const now         = new Date()
@@ -148,10 +189,8 @@ const TutorDashboard = () => {
 
   const pendingNotes = pastSessions.filter(s => s.status !== 'completed').length
 
-  // Today's sessions
   const todaySessions = upcomingSessions.filter(s => s.date === todayStr)
 
-  // Stat cards
   const statCards = [
     {
       label: "Today's Sessions",
@@ -191,7 +230,6 @@ const TutorDashboard = () => {
 
         {/* ======= WELCOME HEADER ======= */}
         <div className="bg-brand-600 text-white rounded-2xl p-8 mb-8 shadow-md relative overflow-hidden">
-          {/* Background decoration */}
           <div className="absolute -top-10 -right-10 w-48 h-48 bg-brand-500 rounded-full opacity-40 blur-2xl pointer-events-none" />
           <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-accent-600 rounded-full opacity-20 blur-2xl pointer-events-none" />
 
@@ -226,7 +264,6 @@ const TutorDashboard = () => {
             </div>
           </div>
 
-          {/* Invite code pill */}
           {user?.inviteCode && (
             <div className="relative mt-5 inline-flex items-center gap-2 bg-brand-700/60 border border-brand-400 backdrop-blur-sm px-4 py-2 rounded-xl">
               <span className="text-brand-200 text-xs font-medium">Your invite code:</span>
