@@ -20,10 +20,8 @@ const authHeaders = (token) => ({
   Authorization: `Bearer ${token}`,
 });
 
-const now = new Date();
-
-const isUpcoming = (session) => new Date(session.date) >= now;
-const isPast     = (session) => new Date(session.date) <  now;
+const isUpcoming = (session) => new Date(session.date) >= new Date();
+const isPast     = (session) => new Date(session.date) <  new Date();
 
 const statusBadge = (status) => {
   const map = {
@@ -62,12 +60,14 @@ function StatCard({ icon: Icon, label, value, sub, color = 'text-brand-600' }) {
 }
 
 function SessionRow({ session }) {
+  const sessionDate = new Date(session.date);
+
   return (
     <div className="flex items-center justify-between rounded-xl border border-surface-200 bg-white px-4 py-3 hover:bg-surface-50 transition-colors">
       <div className="flex items-center gap-3">
         <div className="flex flex-col items-center justify-center w-12 h-12 rounded-lg bg-brand-50 text-brand-700 text-xs font-semibold leading-tight">
-          <span>{new Date(session.date).toLocaleDateString('en-IE', { day: 'numeric' })}</span>
-          <span>{new Date(session.date).toLocaleDateString('en-IE', { month: 'short' })}</span>
+          <span>{sessionDate.toLocaleDateString('en-IE', { day: 'numeric' })}</span>
+          <span>{sessionDate.toLocaleDateString('en-IE', { month: 'short' })}</span>
         </div>
         <div>
           <p className="font-medium text-gray-900">
@@ -290,3 +290,5 @@ export default function StudentDashboard() {
     </div>
   );
 }
+
+export default StudentDashboard

@@ -53,8 +53,8 @@ const Navbar = () => {
   const linkClass = (path) =>
     `text-sm font-medium transition-all duration-150 px-3 py-1.5 rounded-lg ${
       isActive(path)
-        ? 'bg-brand-700 text-white'
-        : 'text-brand-100 hover:bg-brand-700 hover:text-white'
+        ? 'bg-brand-800 text-white'
+        : 'text-brand-100 hover:bg-brand-800 hover:text-white'
     }`
 
   // ── Links per role ────────────────────────────────────────────
@@ -95,7 +95,7 @@ const Navbar = () => {
   const navLinks = getNavLinks()
 
   return (
-    <nav className="bg-brand-600 shadow-md sticky top-0 z-40">
+    <nav className="bg-brand-700 shadow-md sticky top-0 z-40">
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex items-center justify-between h-16">
 
@@ -128,7 +128,7 @@ const Navbar = () => {
               <div className="relative">
                 <button
                   onClick={() => setDropdownOpen(prev => !prev)}
-                  className="flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white px-3 py-1.5 rounded-xl transition-all duration-150"
+                  className="flex items-center gap-2 bg-brand-800 hover:bg-brand-900 text-white px-3 py-1.5 rounded-xl transition-all duration-150"
                 >
                   <div className="w-6 h-6 bg-accent-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
                     {user.name?.charAt(0).toUpperCase()}
@@ -275,7 +275,7 @@ const Navbar = () => {
 
           {/* ── Mobile Hamburger ──────────────────────────────── */}
           <button
-            className="md:hidden text-white p-2 rounded-lg hover:bg-brand-700 transition-colors duration-150"
+            className="md:hidden text-white p-2 rounded-lg hover:bg-brand-800 transition-colors duration-150"
             onClick={() => setMenuOpen(prev => !prev)}
             aria-label="Toggle menu"
           >
@@ -295,7 +295,7 @@ const Navbar = () => {
 
       {/* ── Mobile Menu ───────────────────────────────────────── */}
       {menuOpen && (
-        <div className="md:hidden bg-brand-700 border-t border-brand-500 px-4 py-4 flex flex-col gap-1">
+        <div className="md:hidden bg-brand-800 border-t border-brand-600 px-4 py-4 flex flex-col gap-1">
 
           {navLinks.map(link => (
             <Link
@@ -304,8 +304,8 @@ const Navbar = () => {
               onClick={() => setMenuOpen(false)}
               className={`px-3 py-2.5 rounded-xl text-sm font-medium transition-colors duration-150 ${
                 isActive(link.to)
-                  ? 'bg-brand-800 text-white'
-                  : 'text-brand-100 hover:bg-brand-600 hover:text-white'
+                  ? 'bg-brand-900 text-white'
+                  : 'text-brand-100 hover:bg-brand-700 hover:text-white'
               }`}
             >
               {link.label}

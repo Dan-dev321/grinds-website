@@ -6,7 +6,7 @@ const API = import.meta.env.VITE_API_URL
 
 const STATUS_STYLES = {
   active:        { label: 'Active',        bg: 'bg-green-50',  border: 'border-green-200',  text: 'text-green-700',  pill: 'bg-green-100 text-green-700'   },
-  trial:         { label: 'Trial',         bg: 'bg-blue-50',   border: 'border-blue-200',   text: 'text-blue-700',   pill: 'bg-blue-100 text-blue-700'     },
+  trial:         { label: 'Trial',         bg: 'bg-brand-50',  border: 'border-brand-200',  text: 'text-brand-700',  pill: 'bg-brand-100 text-brand-700'   },
   trial_expired: { label: 'Trial Expired', bg: 'bg-yellow-50', border: 'border-yellow-200', text: 'text-yellow-700', pill: 'bg-yellow-100 text-yellow-700' },
   past_due:      { label: 'Past Due',      bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-700', pill: 'bg-orange-100 text-orange-700' },
   cancelled:     { label: 'Cancelled',     bg: 'bg-gray-50',   border: 'border-gray-200',   text: 'text-gray-500',   pill: 'bg-gray-200 text-gray-600'     },
@@ -54,9 +54,9 @@ const OwnerDashboard = () => {
       <div className="max-w-5xl mx-auto">
 
         {/* Header */}
-        <div className="bg-blue-700 text-white rounded-2xl p-8 mb-6 shadow-md">
+        <div className="bg-brand-700 text-white rounded-2xl p-8 mb-6 shadow-md">
           <h1 className="text-3xl font-extrabold mb-1">💰 Billing Overview</h1>
-          <p className="text-blue-100">Welcome back, {user?.name}.</p>
+          <p className="text-brand-100">Welcome back, {user?.name}.</p>
         </div>
 
         {error && (
@@ -81,7 +81,7 @@ const OwnerDashboard = () => {
               {['active', 'trial', 'past_due', 'cancelled'].map(key => {
                 const style = STATUS_STYLES[key]
                 return (
-                  <div key={key} className={`bg-white rounded-2xl shadow-sm p-5 text-center border-t-4 ${style.border.replace('border-', 'border-')}`}>
+                  <div key={key} className={`bg-white rounded-2xl shadow-sm p-5 text-center border-t-4 ${style.border}`}>
                     <p className={`text-3xl font-extrabold ${style.text}`}>{data.counts[key] || 0}</p>
                     <p className="text-gray-500 text-xs mt-1">{style.label}</p>
                   </div>
@@ -97,8 +97,8 @@ const OwnerDashboard = () => {
                   onClick={() => setFilter(f)}
                   className={`text-xs font-semibold px-4 py-2 rounded-full transition ${
                     filter === f
-                      ? 'bg-blue-700 text-white'
-                      : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-300'
+                      ? 'bg-brand-700 text-white'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:border-brand-300'
                   }`}
                 >
                   {f}

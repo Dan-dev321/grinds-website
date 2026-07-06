@@ -26,8 +26,8 @@ const StarDisplay = ({ rating }) => {
   return <div className="flex gap-0.5">{stars}</div>
 }
 
-// ─── Click-to-rate scale: 0 on the left, 5 on the right, snaps to 0.5 steps ───
 // ─── Single table-style row: name | 0 —slider— 5 | stars | number ────────────
+// Click-to-rate scale: 0 on the left, 5 on the right, snaps to 0.5 steps
 const TopicRow = ({ topic, rating, onChange, onRemove }) => {
   const trackRef = useRef(null)
 
@@ -141,7 +141,7 @@ const TopicSearch = ({ token, onSelect, excludeIds }) => {
         onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)}
         placeholder="Search or add a topic…"
-        className="text-sm px-3 py-2 border border-gray-200 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-blue-400"
+        className="text-sm px-3 py-2 border border-gray-200 rounded-lg w-full focus:outline-none focus:ring-2 focus:ring-brand-400"
       />
       {open && query.trim() && (
         <div className="absolute z-10 top-full mt-1 left-0 right-0 bg-white border border-gray-200 rounded-lg shadow-md max-h-48 overflow-y-auto">
@@ -149,7 +149,7 @@ const TopicSearch = ({ token, onSelect, excludeIds }) => {
             <button
               key={topic._id}
               onClick={() => handleSelect(topic)}
-              className="w-full text-left px-3 py-2 text-sm hover:bg-blue-50 transition"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-brand-50 transition"
             >
               {topic.name}
             </button>
@@ -158,7 +158,7 @@ const TopicSearch = ({ token, onSelect, excludeIds }) => {
             <button
               onClick={handleCreate}
               disabled={creating}
-              className="w-full text-left px-3 py-2 text-sm text-blue-600 font-medium hover:bg-blue-50 transition border-t border-gray-100"
+              className="w-full text-left px-3 py-2 text-sm text-brand-600 font-medium hover:bg-brand-50 transition border-t border-gray-100"
             >
               {creating ? 'Adding…' : `+ Add "${query.trim()}" as new topic`}
             </button>
