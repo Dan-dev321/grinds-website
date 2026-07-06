@@ -212,6 +212,13 @@ const Navbar = () => {
                             >
                               <span>📅</span> Calendar
                             </Link>
+                            <Link
+                              to="/billing"
+                              onClick={() => setDropdownOpen(false)}
+                              className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-brand-50 hover:text-brand-700 transition-colors duration-100"
+                            >
+                              <span>💳</span> Billing
+                            </Link>
                           </>
                         )}
 

@@ -261,6 +261,12 @@ const TutorDashboard = () => {
               >
                 📅 Calendar
               </Link>
+              <Link
+                to="/billing"
+                className="flex items-center gap-2 bg-white text-brand-700 hover:bg-brand-50 text-sm font-bold px-4 py-2 rounded-xl transition-all duration-150 shadow-sm"
+              >
+                💳 Billing
+              </Link>
             </div>
           </div>
 

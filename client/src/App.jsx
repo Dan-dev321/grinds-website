@@ -18,6 +18,7 @@ import Register           from './pages/Register'
 import Notebook           from './pages/Notebook'
 import Pricing            from './pages/Pricing'
 import SubscriptionSuccess from './pages/SubscriptionSuccess'
+import Billing            from './pages/Billing'
 
 // Dashboards
 import StudentDashboard from './pages/dashboards/StudentDashboard'
@@ -95,6 +96,16 @@ function App() {
                 element={
                   <ProtectedRoute allowedRoles={['tutor']}>
                     <TutorDashboard />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* ======= BILLING ======= */}
+              <Route
+                path="/billing"
+                element={
+                  <ProtectedRoute allowedRoles={['tutor']}>
+                    <Billing />
                   </ProtectedRoute>
                 }
               />
