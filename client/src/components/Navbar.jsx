@@ -60,7 +60,6 @@ const Navbar = () => {
   // ── Links per role ────────────────────────────────────────────
   const publicLinks = [
     { to: '/',         label: 'Home'     },
-    { to: '/features', label: 'Features' },
     { to: '/pricing',  label: 'Pricing'  },
   ]
 
