@@ -119,18 +119,18 @@ const Home = () => {
     <div className="flex flex-col">
 
       {/* ======= HERO ======= */}
-      <section className="relative bg-brand-600 text-white overflow-hidden">
+      <section className="relative bg-brand-700 text-white overflow-hidden">
 
         {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-24 -right-24 w-96 h-96 bg-brand-500 rounded-full opacity-40 blur-3xl" />
+          <div className="absolute -top-24 -right-24 w-96 h-96 bg-brand-600 rounded-full opacity-40 blur-3xl" />
           <div className="absolute -bottom-32 -left-24 w-96 h-96 bg-accent-600 rounded-full opacity-30 blur-3xl" />
         </div>
 
         <div className="relative max-w-5xl mx-auto px-4 py-24 text-center">
 
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 bg-brand-700/60 border border-brand-400 text-brand-100 text-xs font-semibold px-4 py-1.5 rounded-full mb-8 backdrop-blur-sm">
+          <div className="inline-flex items-center gap-2 bg-brand-800/60 border border-brand-500 text-brand-100 text-xs font-semibold px-4 py-1.5 rounded-full mb-8 backdrop-blur-sm">
             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
             14-day free trial · No credit card required
           </div>
@@ -155,7 +155,7 @@ const Home = () => {
             </Link>
             
             <a href="#how-it-works"
-              className="border border-brand-400 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-brand-700 transition-all duration-150 text-base"
+              className="border border-brand-500 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-brand-800 transition-all duration-150 text-base"
             >
               See how it works
             </a>
@@ -298,7 +298,7 @@ const Home = () => {
                 key={i}
                 className={`rounded-2xl p-8 relative ${
                   plan.highlight
-                    ? 'bg-brand-600 text-white shadow-xl ring-2 ring-brand-400'
+                    ? 'bg-brand-700 text-white shadow-xl ring-2 ring-brand-500'
                     : 'bg-white border border-gray-200 shadow-sm'
                 }`}
               >
@@ -338,7 +338,7 @@ const Home = () => {
                   className={`block text-center font-bold py-3 rounded-xl transition-all duration-150 ${
                     plan.highlight
                       ? 'bg-white text-brand-700 hover:bg-brand-50'
-                      : 'bg-brand-600 text-white hover:bg-brand-700'
+                      : 'bg-brand-700 text-white hover:bg-brand-800'
                   }`}
                 >
                   {plan.cta}
@@ -355,11 +355,11 @@ const Home = () => {
       </section>
 
       {/* ======= FINAL CTA ======= */}
-      <section className="relative bg-brand-600 text-white py-20 px-4 overflow-hidden">
+      <section className="relative bg-brand-700 text-white py-20 px-4 overflow-hidden">
 
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-16 -right-16 w-72 h-72 bg-accent-500 rounded-full opacity-20 blur-3xl" />
-          <div className="absolute -bottom-16 -left-16 w-72 h-72 bg-brand-400 rounded-full opacity-20 blur-3xl" />
+          <div className="absolute -bottom-16 -left-16 w-72 h-72 bg-brand-500 rounded-full opacity-20 blur-3xl" />
         </div>
 
         <div className="relative max-w-2xl mx-auto text-center">
@@ -378,7 +378,7 @@ const Home = () => {
             </Link>
             <Link
               to="/login"
-              className="border border-brand-400 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-brand-700 transition-all duration-150"
+              className="border border-brand-500 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-brand-800 transition-all duration-150"
             >
               Log in
             </Link>

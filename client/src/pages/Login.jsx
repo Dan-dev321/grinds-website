@@ -5,6 +5,12 @@ import { useAuth } from '../context/AuthContext'
 
 const API = import.meta.env.VITE_API_URL
 
+const ROLE_DASHBOARD = {
+  student: '/dashboard/student',
+  tutor:   '/dashboard/tutor',
+  owner:   '/dashboard/owner',
+}
+
 const Login = () => {
   const { user, login } = useAuth()
   const navigate = useNavigate()
@@ -15,12 +21,7 @@ const Login = () => {
 
   // Redirect if already logged in
   if (user) {
-    const roleMap = {
-      student: '/dashboard/student',
-      tutor:   '/dashboard/tutor',
-      owner:   '/dashboard/admin',
-    }
-    return <Navigate to={roleMap[user.role] || '/'} replace />
+    return <Navigate to={ROLE_DASHBOARD[user.role] || '/'} replace />
   }
 
   const handleChange = (e) => {
@@ -38,12 +39,7 @@ const Login = () => {
       const { token, ...userData } = res.data
       login(userData, token)
 
-      const roleMap = {
-        student: '/dashboard/student',
-        tutor:   '/dashboard/tutor',
-        owner:   '/dashboard/admin',
-      }
-      navigate(roleMap[userData.role] || '/')
+      navigate(ROLE_DASHBOARD[userData.role] || '/')
 
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid email or password')
@@ -58,7 +54,7 @@ const Login = () => {
 
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+          <div className="w-12 h-12 bg-brand-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
             <span className="text-white font-black text-lg">TB</span>
           </div>
           <h1 className="text-2xl font-extrabold text-gray-900">Welcome back</h1>

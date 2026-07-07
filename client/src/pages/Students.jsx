@@ -40,7 +40,7 @@ const fmtMonth = (key) => {
 }
 
 // ─── SVG Bar Chart ────────────────────────────────────────────────────────────
-const SvgBarChart = ({ data, labelKey, countKey, barColour = '#3b82f6', labelShort, height = 140 }) => {
+const SvgBarChart = ({ data, labelKey, countKey, barColour = '#4f46e5', labelShort, height = 140 }) => {
   const max    = Math.max(...data.map(d => d[countKey]), 1)
   const W      = 500
   const H      = height
@@ -110,7 +110,7 @@ const SvgBarChart = ({ data, labelKey, countKey, barColour = '#3b82f6', labelSho
 }
 
 // ─── SVG Line Chart ───────────────────────────────────────────────────────────
-const SvgLineChart = ({ data, labelKey, countKey, lineColour = '#3b82f6', labelShort, height = 140, ySuffix = '' }) => {
+const SvgLineChart = ({ data, labelKey, countKey, lineColour = '#4f46e5', labelShort, height = 140, ySuffix = '' }) => {
   if (!data || data.length < 2) return (
     <p className="text-sm text-gray-400 text-center py-6">Not enough data yet</p>
   )
@@ -215,7 +215,7 @@ const Field = ({ label, name, value, onChange, type = 'text', placeholder = '' }
         onChange={onChange}
         placeholder={placeholder}
         rows={3}
-        className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+        className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none"
       />
     ) : (
       <input
@@ -224,7 +224,7 @@ const Field = ({ label, name, value, onChange, type = 'text', placeholder = '' }
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
       />
     )}
   </div>
@@ -362,7 +362,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
               {tab === 'overview' && !editing && (
                 <button
                   onClick={() => setEditing(true)}
-                  className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm"
+                  className="flex items-center gap-1.5 bg-brand-700 hover:bg-brand-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm"
                 >
                   ✏️ Edit Profile
                 </button>
@@ -399,7 +399,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
               {/* Stat pills */}
               <div className="grid grid-cols-2 gap-3">
                 {[
-                  { icon: '📅', label: 'Upcoming',     val: upcoming.length,  bg: 'bg-blue-50',  num: 'text-blue-700'  },
+                  { icon: '📅', label: 'Upcoming',     val: upcoming.length,  bg: 'bg-brand-50', num: 'text-brand-700' },
                   { icon: '✅', label: 'Completed',    val: completed.length, bg: 'bg-green-50', num: 'text-green-700' },
                   { icon: '🚫', label: 'No Shows',     val: noShows.length,   bg: 'bg-red-50',   num: 'text-red-500'   },
                   { icon: '🕐', label: 'Hours Taught', val: totalHours,       bg: 'bg-amber-50', num: 'text-amber-600' },
@@ -449,7 +449,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
                       onClick={() => setStage(s.value)}
                       title={s.label}
                       className={`flex-1 h-2 rounded-full transition-all ${
-                        i <= stageIndex ? 'bg-blue-600' : 'bg-gray-200'
+                        i <= stageIndex ? 'bg-brand-700' : 'bg-gray-200'
                       }`}
                     />
                   ))}
@@ -461,7 +461,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
                       onClick={() => setStage(s.value)}
                       className={`px-3 py-1 rounded-full text-xs font-semibold border transition ${
                         stage === s.value
-                          ? 'bg-blue-700 text-white border-blue-700'
+                          ? 'bg-brand-700 text-white border-brand-700'
                           : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
                       }`}
                     >
@@ -477,7 +477,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
                 <button
                   onClick={handleSaveStage}
                   disabled={savingStage}
-                  className="bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-blue-800 transition disabled:opacity-50"
+                  className="bg-brand-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-brand-800 transition disabled:opacity-50"
                 >
                   {savingStage ? 'Saving...' : 'Save Stage'}
                 </button>
@@ -573,7 +573,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
                       <button
                         onClick={handleSaveProfile}
                         disabled={savingProfile}
-                        className="flex-1 bg-blue-700 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-blue-800 transition disabled:opacity-50 shadow-sm"
+                        className="flex-1 bg-brand-700 text-white py-2.5 rounded-xl text-sm font-bold hover:bg-brand-800 transition disabled:opacity-50 shadow-sm"
                       >
                         {savingProfile ? 'Saving...' : 'Save Changes'}
                       </button>
@@ -595,7 +595,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
             <section>
               <div className="grid grid-cols-3 gap-3 mb-5">
                 {[
-                  { icon: '📅', label: 'Upcoming',  val: upcoming.length,  bg: 'bg-blue-50',  num: 'text-blue-700'  },
+                  { icon: '📅', label: 'Upcoming',  val: upcoming.length,  bg: 'bg-brand-50', num: 'text-brand-700' },
                   { icon: '✅', label: 'Completed', val: completed.length, bg: 'bg-green-50', num: 'text-green-700' },
                   { icon: '🚫', label: 'No Shows',  val: noShows.length,   bg: 'bg-red-50',   num: 'text-red-500'   },
                 ].map(({ icon, label, val, bg, num }) => (
@@ -622,7 +622,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
                       className={`rounded-xl px-4 py-3 border text-sm flex items-center justify-between ${
                         s.status === 'completed' ? 'bg-green-50 border-green-200' :
                         s.status === 'no-show'   ? 'bg-red-50 border-red-200' :
-                                                   'bg-blue-50 border-blue-200'
+                                                   'bg-brand-50 border-brand-200'
                       }`}
                     >
                       <div>
@@ -636,7 +636,7 @@ const StudentModal = ({ student, onClose, onProgressUpdate, onProfileUpdate }) =
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${
                         s.status === 'completed' ? 'bg-green-200 text-green-800' :
                         s.status === 'no-show'   ? 'bg-red-200 text-red-800' :
-                                                   'bg-blue-200 text-blue-800'
+                                                   'bg-brand-200 text-brand-800'
                       }`}>
                         {s.status}
                       </span>
@@ -783,7 +783,7 @@ const Students = () => {
               key={key}
               onClick={() => setPageTab(key)}
               className={`flex-1 py-2 text-sm font-semibold rounded-lg transition ${
-                pageTab === key ? 'bg-blue-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                pageTab === key ? 'bg-brand-700 text-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
               }`}
             >
               {label}
@@ -828,7 +828,7 @@ const Students = () => {
                         key={key}
                         onClick={() => handleTimeRange(key)}
                         className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-                          timeRange === key ? 'bg-blue-600 text-white' : 'text-gray-500 hover:text-gray-700'
+                          timeRange === key ? 'bg-brand-700 text-white' : 'text-gray-500 hover:text-gray-700'
                         }`}
                       >
                         {label}
@@ -840,7 +840,7 @@ const Students = () => {
                 {/* ── Hero stat cards ── */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
                   {[
-                    { icon: '👨‍🎓', label: 'Total Students',    val: students.length,                        bg: 'bg-blue-50',   num: 'text-blue-700'   },
+                    { icon: '👨‍🎓', label: 'Total Students',    val: students.length,                        bg: 'bg-brand-50',  num: 'text-brand-700'  },
                     { icon: '🕐', label: 'Total Hours Taught', val: analytics?.totalHours         ?? '—',   bg: 'bg-amber-50',  num: 'text-amber-600'  },
                     { icon: '✅', label: 'Sessions Completed', val: analytics?.completedCount      ?? '—',   bg: 'bg-green-50',  num: 'text-green-700'  },
                     { icon: '📐', label: 'Avg Lesson Length',  val: analytics?.avgLessonLength ? `${analytics.avgLessonLength}m` : '—', bg: 'bg-violet-50', num: 'text-violet-700' },
@@ -858,8 +858,8 @@ const Students = () => {
                   <h2 className="text-base font-bold text-gray-700 mb-4">📅 Upcoming Session Load</h2>
                   <div className="grid grid-cols-3 gap-4">
                     {[
-                      { label: 'Next 7 days',  val: analytics?.upcomingNext7,  bg: 'bg-blue-50',   num: 'text-blue-700'   },
-                      { label: 'Next 14 days', val: analytics?.upcomingNext14, bg: 'bg-indigo-50', num: 'text-indigo-700' },
+                      { label: 'Next 7 days',  val: analytics?.upcomingNext7,  bg: 'bg-brand-50',  num: 'text-brand-700'  },
+                      { label: 'Next 14 days', val: analytics?.upcomingNext14, bg: 'bg-brand-100', num: 'text-brand-800'  },
                       { label: 'Next 30 days', val: analytics?.upcomingNext30, bg: 'bg-violet-50', num: 'text-violet-700' },
                     ].map(({ label, val, bg, num }) => (
                       <div key={label} className={`rounded-xl p-4 text-center ${bg}`}>
@@ -907,7 +907,7 @@ const Students = () => {
                       const best = analytics?.sessionsByDay?.reduce((b, d) => d.count > (b?.count ?? -1) ? d : b, null)
                       return best && best.count > 0 ? (
                         <>
-                          <p className="text-3xl font-extrabold text-blue-700 mb-1">{best.day}</p>
+                          <p className="text-3xl font-extrabold text-brand-700 mb-1">{best.day}</p>
                           <p className="text-xs text-gray-400">{best.count} session{best.count !== 1 ? 's' : ''} booked</p>
                         </>
                       ) : <p className="text-sm text-gray-400">No data yet</p>
@@ -933,7 +933,7 @@ const Students = () => {
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
                     <p className="text-sm font-bold text-gray-700 mb-1">📊 Avg Sessions Per Student</p>
                     <p className="text-xs text-gray-400 mb-3">Completed sessions ÷ total students</p>
-                    <p className="text-4xl font-extrabold text-blue-700">
+                    <p className="text-4xl font-extrabold text-brand-700">
                       {analytics?.avgSessionsPerStudent ?? '—'}
                     </p>
                   </div>
@@ -957,7 +957,7 @@ const Students = () => {
                         data={analytics.sessionsByDay}
                         labelKey="day"
                         countKey="count"
-                        barColour="#3b82f6"
+                        barColour="#4f46e5"
                         labelShort={d => d.day.slice(0, 3)}
                       />
                     )}
@@ -1063,7 +1063,7 @@ const Students = () => {
                             </span>
                             <div className="flex-1 bg-gray-100 rounded-full h-2">
                               <div
-                                className="bg-blue-500 h-2 rounded-full transition-all duration-500"
+                                className="bg-brand-500 h-2 rounded-full transition-all duration-500"
                                 style={{ width: `${students.length ? (s.count / students.length) * 100 : 0}%` }}
                               />
                             </div>
@@ -1112,7 +1112,7 @@ const Students = () => {
                         <div
                           key={s._id}
                           onClick={() => setSelected(students.find(st => st._id === s._id))}
-                          className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 cursor-pointer hover:bg-blue-50 hover:border-blue-200 transition group"
+                          className="flex items-center gap-3 px-4 py-3 bg-gray-50 rounded-xl border border-gray-100 cursor-pointer hover:bg-brand-50 hover:border-brand-200 transition group"
                         >
                           <span className={`text-sm font-extrabold w-6 text-center shrink-0 ${
                             i === 0 ? 'text-amber-500' :
@@ -1122,7 +1122,7 @@ const Students = () => {
                             {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}.`}
                           </span>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-bold text-gray-800 truncate group-hover:text-blue-700 transition">
+                            <p className="text-sm font-bold text-gray-800 truncate group-hover:text-brand-700 transition">
                               {s.name}
                             </p>
                             <p className="text-xs text-gray-400 truncate">{s.email}</p>
@@ -1160,7 +1160,7 @@ const Students = () => {
                             <div className="flex items-center gap-3 min-w-0">
                               <span className={`w-2 h-2 rounded-full shrink-0 ${dot}`} />
                               <div className="min-w-0">
-                                <p className="text-sm font-bold text-gray-800 truncate group-hover:text-blue-700 transition">
+                                <p className="text-sm font-bold text-gray-800 truncate group-hover:text-brand-700 transition">
                                   {s.name}
                                 </p>
                                 <p className="text-xs text-gray-400">
@@ -1190,7 +1190,7 @@ const Students = () => {
                           className="flex items-center justify-between px-4 py-3 bg-red-50 rounded-xl border border-red-100 cursor-pointer hover:bg-red-100 transition group"
                         >
                           <div className="min-w-0">
-                            <p className="text-sm font-bold text-gray-800 truncate group-hover:text-blue-700 transition">
+                            <p className="text-sm font-bold text-gray-800 truncate group-hover:text-brand-700 transition">
                               {s.name}
                             </p>
                             <p className="text-xs text-gray-400 truncate">{s.email}</p>
@@ -1226,12 +1226,12 @@ const Students = () => {
                 placeholder="Search by name or email…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="flex-1 border border-gray-200 bg-white rounded-xl px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 border border-gray-200 bg-white rounded-xl px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               />
               <select
                 value={filterSubject}
                 onChange={e => setFilterSubject(e.target.value)}
-                className="border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="all">All subjects</option>
                 {allSubjects.map(sub => <option key={sub} value={sub}>{sub}</option>)}
@@ -1239,7 +1239,7 @@ const Students = () => {
               <select
                 value={filterStage}
                 onChange={e => setFilterStage(e.target.value)}
-                className="border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="border border-gray-200 bg-white rounded-xl px-3 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
               >
                 <option value="all">All stages</option>
                 {PROGRESS_STAGES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
@@ -1272,11 +1272,11 @@ const Students = () => {
                     <div
                       key={student._id}
                       onClick={() => setSelected(student)}
-                      className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 cursor-pointer hover:shadow-md hover:border-blue-200 transition-all group"
+                      className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 cursor-pointer hover:shadow-md hover:border-brand-200 transition-all group"
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-extrabold text-gray-800 text-base truncate group-hover:text-blue-700 transition">
+                          <h3 className="font-extrabold text-gray-800 text-base truncate group-hover:text-brand-700 transition">
                             {student.name}
                           </h3>
                           <p className="text-xs text-gray-400 truncate">{student.email}</p>
@@ -1297,9 +1297,9 @@ const Students = () => {
                       )}
 
                       <div className="grid grid-cols-3 gap-2 mb-4">
-                        <div className="bg-blue-50 rounded-xl p-2.5 text-center">
-                          <p className="text-lg font-extrabold text-blue-700">{booked}</p>
-                          <p className="text-xs text-blue-500 leading-tight">Booked</p>
+                        <div className="bg-brand-50 rounded-xl p-2.5 text-center">
+                          <p className="text-lg font-extrabold text-brand-700">{booked}</p>
+                          <p className="text-xs text-brand-500 leading-tight">Booked</p>
                         </div>
                         <div className="bg-green-50 rounded-xl p-2.5 text-center">
                           <p className="text-lg font-extrabold text-green-700">{done}</p>
@@ -1315,7 +1315,7 @@ const Students = () => {
                         <select
                           value={stage}
                           onChange={e => handleStageDropdown(student._id, e.target.value, e)}
-                          className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                          className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 cursor-pointer"
                         >
                           {PROGRESS_STAGES.map(s => (
                             <option key={s.value} value={s.value}>{s.label}</option>
@@ -1325,7 +1325,7 @@ const Students = () => {
 
                       <div className="mt-3 pt-3 border-t border-gray-50 flex items-center justify-between text-xs text-gray-400">
                         <span>{student.school || student.yearGroup || '—'}</span>
-                        <span className="text-blue-500 font-medium group-hover:underline">View details →</span>
+                        <span className="text-brand-600 font-medium group-hover:underline">View details →</span>
                       </div>
                     </div>
                   )

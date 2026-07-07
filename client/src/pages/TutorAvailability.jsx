@@ -16,7 +16,7 @@ const SETTINGS_KEY = 'tutorAvailabilitySettings'
 
 const LESSON_PRESETS = [30, 45, 60, 90]
 
-const SLOT_COLOUR = { bg: '#dbeafe', border: '#3b82f6', text: '#1d4ed8' }
+const SLOT_COLOUR = { bg: '#e0e7ff', border: '#4f46e5', text: '#3730a3' }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const toMins  = (t) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
@@ -397,7 +397,7 @@ const TutorAvailability = () => {
         {/* Week Navigation */}
         <div className="flex items-center justify-between mb-3 bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-3">
           <button onClick={prevWeek}
-            className="text-blue-700 font-bold text-xl hover:text-blue-900 px-2">←</button>
+            className="text-brand-700 font-bold text-xl hover:text-brand-900 px-2">←</button>
           <div className="text-center">
             <p className="font-bold text-gray-800 text-sm">
               {formatDisplay(weekDates[0])} – {formatDisplay(weekDates[6])}
@@ -405,7 +405,7 @@ const TutorAvailability = () => {
             <p className="text-xs text-gray-400">{new Date(weekStart).getFullYear()}</p>
           </div>
           <button onClick={nextWeek}
-            className="text-blue-700 font-bold text-xl hover:text-blue-900 px-2">→</button>
+            className="text-brand-700 font-bold text-xl hover:text-brand-900 px-2">→</button>
         </div>
 
         {/* Calendar Grid */}
@@ -429,15 +429,15 @@ const TutorAvailability = () => {
                 <div className="py-2" />
                 {weekDates.map((date, i) => (
                   <div key={date}
-                    className={`py-2 text-center border-l border-gray-100 ${date === todayStr ? 'bg-blue-50' : ''}`}>
-                    <p className={`text-xs font-bold uppercase ${date === todayStr ? 'text-blue-700' : 'text-gray-500'}`}>
+                    className={`py-2 text-center border-l border-gray-100 ${date === todayStr ? 'bg-brand-50' : ''}`}>
+                    <p className={`text-xs font-bold uppercase ${date === todayStr ? 'text-brand-700' : 'text-gray-500'}`}>
                       {DAY_LABELS[i]}
                     </p>
-                    <p className={`text-xs font-semibold ${date === todayStr ? 'text-blue-700' : 'text-gray-600'}`}>
+                    <p className={`text-xs font-semibold ${date === todayStr ? 'text-brand-700' : 'text-gray-600'}`}>
                       {formatDisplay(date)}
                     </p>
                     {date === todayStr && (
-                      <span className="text-xs bg-blue-700 text-white px-1.5 py-0.5 rounded-full">
+                      <span className="text-xs bg-brand-700 text-white px-1.5 py-0.5 rounded-full">
                         Today
                       </span>
                     )}
@@ -477,9 +477,9 @@ const TutorAvailability = () => {
                         className={`
                           relative border-l border-gray-100
                           ${rowIdx % 2 === 0 ? 'border-t border-gray-50' : ''}
-                          ${date === todayStr ? 'bg-blue-50/20' : ''}
-                          ${inSel ? 'bg-blue-200' : ''}
-                          ${slotsHere.length === 0 ? 'hover:bg-blue-50 cursor-crosshair' : ''}
+                          ${date === todayStr ? 'bg-brand-50/20' : ''}
+                          ${inSel ? 'bg-brand-200' : ''}
+                          ${slotsHere.length === 0 ? 'hover:bg-brand-50 cursor-crosshair' : ''}
                         `}
                         style={{ height: `${CELL_HEIGHT}px` }}
                         onMouseDown={() => handleCellMouseDown(date, time)}
@@ -560,7 +560,7 @@ const TutorAvailability = () => {
             Buffer
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-blue-200 inline-block" />
+            <span className="w-3 h-3 rounded bg-brand-200 inline-block" />
             Selecting
           </span>
         </div>
@@ -694,19 +694,19 @@ const TutorAvailability = () => {
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
                 <input type="date" value={manualDate} onChange={e => setManualDate(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
               </div>
 
               <div className="flex gap-3">
                 <div className="flex-1">
                   <label className="block text-xs font-medium text-gray-600 mb-1">Start time</label>
                   <input type="time" value={manualStart} onChange={e => setManualStart(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                 </div>
                 <div className="flex-1">
                   <label className="block text-xs font-medium text-gray-600 mb-1">Duration</label>
                   <select value={manualDuration} onChange={e => setManualDuration(Number(e.target.value))}
-                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500">
                     {LESSON_PRESETS.map(p => <option key={p} value={p}>{p} min</option>)}
                   </select>
                 </div>
@@ -716,14 +716,14 @@ const TutorAvailability = () => {
                 <label className="block text-xs font-medium text-gray-600 mb-1">Student name</label>
                 <input type="text" value={manualName} onChange={e => setManualName(e.target.value)}
                   placeholder="e.g. Aoife Byrne"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
               </div>
 
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Student email (optional)</label>
                 <input type="email" value={manualEmail} onChange={e => setManualEmail(e.target.value)}
                   placeholder="student@example.com"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
               </div>
 
               {manualStart && manualDate && (
@@ -733,7 +733,7 @@ const TutorAvailability = () => {
               )}
 
               <button onClick={handleManualBooking} disabled={manualSaving}
-                className="bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-800 transition disabled:opacity-50 mt-1">
+                className="bg-brand-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-brand-800 transition disabled:opacity-50 mt-1">
                 {manualSaving ? 'Adding...' : 'Add Booking'}
               </button>
             </div>
@@ -773,7 +773,7 @@ const TutorAvailability = () => {
                     <select
                       value={hourStart}
                       onChange={(e) => updateSetting('hourStart', Number(e.target.value))}
-                      className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                     >
                       {Array.from({ length: 24 }, (_, h) => (
                         <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
@@ -785,7 +785,7 @@ const TutorAvailability = () => {
                     <select
                       value={hourEnd}
                       onChange={(e) => updateSetting('hourEnd', Number(e.target.value))}
-                      className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
                     >
                       {Array.from({ length: 25 }, (_, h) => (
                         <option key={h} value={h}>{String(h).padStart(2, '0')}:00</option>
@@ -809,7 +809,7 @@ const TutorAvailability = () => {
                       onClick={() => updateSetting('lessonMins', p)}
                       className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition ${
                         lessonMins === p
-                          ? 'bg-blue-700 text-white border-blue-700'
+                          ? 'bg-brand-700 text-white border-brand-700'
                           : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
                       }`}
                     >
@@ -857,15 +857,15 @@ const TutorAvailability = () => {
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Copy FROM</label>
                     <input type="date" value={copyFrom} onChange={e => setCopyFrom(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-600 mb-1">Copy TO</label>
                     <input type="date" value={copyTo} onChange={e => setCopyTo(e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                      className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                   </div>
                   <button onClick={handleCopyDay} disabled={copying}
-                    className="bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-blue-800 transition disabled:opacity-50">
+                    className="bg-brand-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-brand-800 transition disabled:opacity-50">
                     {copying ? 'Copying...' : 'Copy Day →'}
                   </button>
                   <p className="text-xs text-gray-400">⚠️ Unbooked slots on destination day will be replaced</p>
@@ -880,9 +880,9 @@ const TutorAvailability = () => {
                 </p>
                 <div className="flex flex-col gap-3">
                   <input type="date" value={recurUntil} onChange={e => setRecurUntil(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                   <button onClick={handleRecurringTemplate} disabled={recurring}
-                    className="bg-blue-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-blue-800 transition disabled:opacity-50">
+                    className="bg-brand-700 text-white px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-brand-800 transition disabled:opacity-50">
                     {recurring ? 'Setting up...' : 'Repeat Weekly →'}
                   </button>
                 </div>
@@ -894,7 +894,7 @@ const TutorAvailability = () => {
                 <p className="text-xs text-gray-400 mb-3">Removes all unbooked slots on the chosen day. Booked slots are kept.</p>
                 <div className="flex flex-col gap-3">
                   <input type="date" value={clearDate} onChange={e => setClearDate(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500" />
                   <button onClick={handleBulkClearDay} disabled={clearing}
                     className="bg-red-100 text-red-600 px-4 py-1.5 rounded-lg text-sm font-semibold hover:bg-red-200 transition disabled:opacity-50">
                     {clearing ? 'Clearing...' : 'Clear Day'}

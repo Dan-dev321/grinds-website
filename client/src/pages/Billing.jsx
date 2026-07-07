@@ -65,7 +65,7 @@ const Billing = () => {
           <button
             onClick={handleManageBilling}
             disabled={loading}
-            className="w-full bg-brand-600 hover:bg-brand-700 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold px-5 py-3 rounded-xl transition-all duration-150"
+            className="w-full bg-brand-700 hover:bg-brand-800 disabled:opacity-60 disabled:cursor-not-allowed text-white font-bold px-5 py-3 rounded-xl transition-all duration-150"
           >
             {loading ? 'Opening portal…' : 'Manage Billing (Stripe Portal)'}
           </button>

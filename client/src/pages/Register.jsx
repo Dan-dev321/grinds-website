@@ -28,7 +28,6 @@ const Register = () => {
 
     try {
       if (mode === 'tutor') {
-        // ✅ Only send what the tutor endpoint expects
         const res = await axios.post(`${API}/api/auth/register/tutor`, {
           name:         form.name,
           email:        form.email,
@@ -41,7 +40,6 @@ const Register = () => {
         navigate('/dashboard/tutor')
 
       } else {
-        // ✅ Only send what the student endpoint expects
         const res = await axios.post(`${API}/api/auth/register/student`, {
           name:       form.name,
           email:      form.email,
@@ -66,7 +64,7 @@ const Register = () => {
 
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-brand-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
+          <div className="w-12 h-12 bg-brand-700 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
             <span className="text-white font-black text-lg">TN</span>
           </div>
           <h1 className="text-2xl font-extrabold text-gray-900">TutorNode</h1>

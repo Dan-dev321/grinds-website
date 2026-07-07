@@ -30,6 +30,14 @@ const stripHTML = (html) => {
   return tmp.textContent || tmp.innerText || ''
 }
 
+// ─── Shared deterministic string hash, used to pick a stable colour
+// for a given name or tag (same input always maps to the same colour) ───────
+const hashString = (str = '') => {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  return Math.abs(hash)
+}
+
 const getInitials = (name = '') =>
   name.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase()
 
@@ -41,11 +49,7 @@ const AVATAR_COLOURS = [
   'bg-rose-100 text-rose-700',
   'bg-teal-100 text-teal-700',
 ]
-const avatarColour = (name = '') => {
-  let hash = 0
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
-  return AVATAR_COLOURS[Math.abs(hash) % AVATAR_COLOURS.length]
-}
+const avatarColour = (name = '') => AVATAR_COLOURS[hashString(name) % AVATAR_COLOURS.length]
 
 const HIGHLIGHTS = [
   { label: 'Yellow', value: '#fef08a' },
@@ -66,11 +70,7 @@ const TAG_COLOURS = [
   'bg-rose-100 text-rose-700 border-rose-200',
   'bg-teal-100 text-teal-700 border-teal-200',
 ]
-const tagColour = (tag = '') => {
-  let hash = 0
-  for (let i = 0; i < tag.length; i++) hash = tag.charCodeAt(i) + ((hash << 5) - hash)
-  return TAG_COLOURS[Math.abs(hash) % TAG_COLOURS.length]
-}
+const tagColour = (tag = '') => TAG_COLOURS[hashString(tag) % TAG_COLOURS.length]
 
 const Toolbar = ({ onBold, onBullet, onHighlight, onClearHighlight }) => {
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -181,12 +181,12 @@ const TagEditor = ({ tags, onChange }) => {
           onChange={(e) => setCustomInput(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCustomTag() } }}
           placeholder="+ Custom tag"
-          className="text-xs px-2.5 py-1 border border-gray-200 rounded-full focus:outline-none focus:ring-1 focus:ring-blue-400 w-32"
+          className="text-xs px-2.5 py-1 border border-gray-200 rounded-full focus:outline-none focus:ring-1 focus:ring-brand-400 w-32"
         />
         {customInput.trim() && (
           <button
             onClick={addCustomTag}
-            className="text-xs px-2.5 py-1 bg-blue-600 text-white rounded-full font-semibold hover:bg-blue-700"
+            className="text-xs px-2.5 py-1 bg-brand-700 text-white rounded-full font-semibold hover:bg-brand-800"
           >
             Add
           </button>
@@ -291,8 +291,8 @@ const SessionEntry = ({ entry, studentId, token, onSaved, defaultExpanded }) => 
     return (
       <button
         onClick={() => setExpanded(true)}
-        className={`w-full text-left mb-2 px-4 py-3 rounded-xl border bg-white hover:bg-blue-50/40 transition flex items-center justify-between gap-4 group ${
-          pinned ? 'border-amber-300 bg-amber-50/40' : 'border-gray-100 hover:border-blue-200'
+        className={`w-full text-left mb-2 px-4 py-3 rounded-xl border bg-white hover:bg-brand-50/40 transition flex items-center justify-between gap-4 group ${
+          pinned ? 'border-amber-300 bg-amber-50/40' : 'border-gray-100 hover:border-brand-200'
         }`}
       >
         <div className="flex items-center gap-3 min-w-0">
@@ -324,7 +324,7 @@ const SessionEntry = ({ entry, studentId, token, onSaved, defaultExpanded }) => 
             {previewText || <span className="italic text-gray-300">No notes yet</span>}
           </span>
         </div>
-        <span className="text-xs text-blue-500 font-medium opacity-0 group-hover:opacity-100 transition shrink-0">
+        <span className="text-xs text-brand-600 font-medium opacity-0 group-hover:opacity-100 transition shrink-0">
           Expand →
         </span>
       </button>
@@ -372,7 +372,7 @@ const SessionEntry = ({ entry, studentId, token, onSaved, defaultExpanded }) => 
             contentEditable
             suppressContentEditableWarning
             dangerouslySetInnerHTML={{ __html: entry.content || '' }}
-            className="min-h-[160px] w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400 bg-white"
+            className="min-h-[160px] w-full border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-brand-400 bg-white"
             style={{ lineHeight: '1.7' }}
           />
         </div>
@@ -399,7 +399,7 @@ const SessionEntry = ({ entry, studentId, token, onSaved, defaultExpanded }) => 
         <button
           onClick={handleSave}
           disabled={saving}
-          className="text-xs px-4 py-1.5 rounded-full font-semibold transition disabled:opacity-50 bg-blue-700 text-white hover:bg-blue-800"
+          className="text-xs px-4 py-1.5 rounded-full font-semibold transition disabled:opacity-50 bg-brand-700 text-white hover:bg-brand-800"
         >
           {saving ? 'Saving...' : saved ? '✅ Saved!' : 'Save Notes'}
         </button>
@@ -521,7 +521,7 @@ const Notebook = () => {
                     i !== 0 ? 'border-t border-gray-100' : ''
                   } ${
                     isActive
-                      ? 'bg-blue-50 border-l-4 border-l-blue-700 pl-3'
+                      ? 'bg-brand-50 border-l-4 border-l-brand-700 pl-3'
                       : 'border-l-4 border-l-transparent hover:bg-gray-50'
                   }`}
                 >
@@ -529,7 +529,7 @@ const Notebook = () => {
                     {getInitials(note.student.name)}
                   </div>
                   <div className="min-w-0">
-                    <p className={`text-sm font-semibold truncate ${isActive ? 'text-blue-700' : 'text-gray-800'}`}>
+                    <p className={`text-sm font-semibold truncate ${isActive ? 'text-brand-700' : 'text-gray-800'}`}>
                       {note.student.name}
                     </p>
                     <p className="text-xs text-gray-400 mt-0.5 truncate">
@@ -576,7 +576,7 @@ const Notebook = () => {
               <button
                 onClick={handleExportAll}
                 disabled={exportingAll}
-                className="text-sm px-4 py-2 rounded-xl font-semibold transition disabled:opacity-50 bg-white text-blue-700 border border-blue-200 hover:bg-blue-50 whitespace-nowrap"
+                className="text-sm px-4 py-2 rounded-xl font-semibold transition disabled:opacity-50 bg-white text-brand-700 border border-brand-200 hover:bg-brand-50 whitespace-nowrap"
               >
                 {exportingAll ? 'Exporting…' : '📄 Export Full History'}
               </button>

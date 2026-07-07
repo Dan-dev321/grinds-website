@@ -82,7 +82,7 @@ const FAQ = [
 ]
 
 const Pricing = () => {
-  const { user, token } = useAuth()   // ← token pulled directly from context
+  const { user, token } = useAuth()
   const navigate  = useNavigate()
   const location  = useLocation()
 
@@ -104,11 +104,11 @@ const Pricing = () => {
     setError(null)
 
     try {
-      const res = await fetch(`${API}/api/stripe/checkout`, {  // ← API base URL added
+      const res = await fetch(`${API}/api/stripe/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,                    // ← token from useAuth, not user.token
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ plan: planId }),
       })
@@ -132,16 +132,16 @@ const Pricing = () => {
     <div className="flex flex-col">
 
       {/* ── HERO ─────────────────────────────────────────────── */}
-      <section className="relative bg-brand-600 text-white overflow-hidden">
+      <section className="relative bg-brand-700 text-white overflow-hidden">
 
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-24 -right-24 w-96 h-96 bg-brand-500 rounded-full opacity-40 blur-3xl" />
+          <div className="absolute -top-24 -right-24 w-96 h-96 bg-brand-600 rounded-full opacity-40 blur-3xl" />
           <div className="absolute -bottom-32 -left-24 w-96 h-96 bg-accent-600 rounded-full opacity-30 blur-3xl" />
         </div>
 
         <div className="relative max-w-3xl mx-auto px-4 py-20 text-center">
 
-          <div className="inline-flex items-center gap-2 bg-brand-700/60 border border-brand-400 text-brand-100 text-xs font-semibold px-4 py-1.5 rounded-full mb-8 backdrop-blur-sm">
+          <div className="inline-flex items-center gap-2 bg-brand-800/60 border border-brand-500 text-brand-100 text-xs font-semibold px-4 py-1.5 rounded-full mb-8 backdrop-blur-sm">
             <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
             14-day free trial · No credit card required
           </div>
@@ -182,7 +182,7 @@ const Pricing = () => {
                 key={plan.id}
                 className={`relative rounded-2xl p-8 flex flex-col transition-all duration-200 ${
                   plan.highlight
-                    ? 'bg-brand-600 text-white shadow-xl ring-2 ring-brand-400'
+                    ? 'bg-brand-700 text-white shadow-xl ring-2 ring-brand-500'
                     : 'bg-white border border-gray-200 shadow-sm hover:shadow-md'
                 }`}
               >
@@ -221,7 +221,7 @@ const Pricing = () => {
 
                 <div
                   className={`flex items-start gap-3 rounded-xl px-4 py-3 mb-8 flex-grow ${
-                    plan.highlight ? 'bg-brand-700/50' : 'bg-brand-50'
+                    plan.highlight ? 'bg-brand-800/50' : 'bg-brand-50'
                   }`}
                 >
                   <span className={`mt-0.5 flex-shrink-0 text-lg ${plan.highlight ? 'text-accent-300' : 'text-brand-500'}`}>
@@ -239,7 +239,7 @@ const Pricing = () => {
                   className={`w-full text-center font-bold py-3 rounded-xl transition-all duration-150 disabled:opacity-60 disabled:cursor-not-allowed ${
                     plan.highlight
                       ? 'bg-white text-brand-700 hover:bg-brand-50'
-                      : 'bg-brand-600 text-white hover:bg-brand-700'
+                      : 'bg-brand-700 text-white hover:bg-brand-800'
                   }`}
                 >
                   {loadingPlan === plan.id
@@ -334,11 +334,11 @@ const Pricing = () => {
       </section>
 
       {/* ── FINAL CTA ────────────────────────────────────────── */}
-      <section className="relative bg-brand-600 text-white py-20 px-4 overflow-hidden">
+      <section className="relative bg-brand-700 text-white py-20 px-4 overflow-hidden">
 
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-16 -right-16 w-72 h-72 bg-accent-500 rounded-full opacity-20 blur-3xl" />
-          <div className="absolute -bottom-16 -left-16 w-72 h-72 bg-brand-400 rounded-full opacity-20 blur-3xl" />
+          <div className="absolute -bottom-16 -left-16 w-72 h-72 bg-brand-500 rounded-full opacity-20 blur-3xl" />
         </div>
 
         <div className="relative max-w-2xl mx-auto text-center">
@@ -357,7 +357,7 @@ const Pricing = () => {
             </Link>
             <Link
               to="/login"
-              className="border border-brand-400 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-brand-700 transition-all duration-150"
+              className="border border-brand-500 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-brand-800 transition-all duration-150"
             >
               Log in
             </Link>

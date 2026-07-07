@@ -6,7 +6,7 @@ const API = import.meta.env.VITE_API_URL
 
 const SubscriptionSuccess = () => {
   const [searchParams] = useSearchParams()
-  const { token } = useAuth()                        // ✅ token directly, not user.token
+  const { token } = useAuth()
   const [status, setStatus] = useState('loading')
 
   useEffect(() => {
@@ -22,7 +22,7 @@ const SubscriptionSuccess = () => {
 
     const poll = async () => {
       try {
-        const res  = await fetch(`${API}/api/stripe/status`, {   // ✅ API base URL added
+        const res  = await fetch(`${API}/api/stripe/status`, {
           headers: { Authorization: `Bearer ${token}` },
         })
         const data = await res.json()
@@ -48,7 +48,7 @@ const SubscriptionSuccess = () => {
     return (
       <div className="min-h-screen bg-surface-100 flex items-center justify-center px-4">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin mx-auto mb-6" />
+          <div className="w-16 h-16 border-4 border-brand-200 border-t-brand-700 rounded-full animate-spin mx-auto mb-6" />
           <h2 className="text-xl font-bold text-gray-900 mb-2">Confirming your subscription…</h2>
           <p className="text-gray-400 text-sm">This only takes a moment.</p>
         </div>
@@ -69,7 +69,7 @@ const SubscriptionSuccess = () => {
           </p>
           <Link
             to="/pricing"
-            className="inline-block bg-brand-600 text-white font-bold px-6 py-3 rounded-xl hover:bg-brand-700 transition-all duration-150"
+            className="inline-block bg-brand-700 text-white font-bold px-6 py-3 rounded-xl hover:bg-brand-800 transition-all duration-150"
           >
             Back to Pricing
           </Link>
@@ -98,7 +98,7 @@ const SubscriptionSuccess = () => {
         <div className="flex flex-col gap-3">
           <Link
             to="/dashboard/tutor"
-            className="w-full bg-brand-600 text-white font-bold py-3 rounded-xl hover:bg-brand-700 transition-all duration-150"
+            className="w-full bg-brand-700 text-white font-bold py-3 rounded-xl hover:bg-brand-800 transition-all duration-150"
           >
             Go to my dashboard →
           </Link>

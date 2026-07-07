@@ -191,6 +191,9 @@ const TutorDashboard = () => {
 
   const todaySessions = upcomingSessions.filter(s => s.date === todayStr)
 
+  // computed once, reused in both the empty-state check and the list render below
+  const otherUpcomingSessions = upcomingSessions.filter(s => s.date !== todayStr)
+
   const statCards = [
     {
       label: "Today's Sessions",
@@ -229,8 +232,8 @@ const TutorDashboard = () => {
       <div className="max-w-5xl mx-auto">
 
         {/* ======= WELCOME HEADER ======= */}
-        <div className="bg-brand-600 text-white rounded-2xl p-8 mb-8 shadow-md relative overflow-hidden">
-          <div className="absolute -top-10 -right-10 w-48 h-48 bg-brand-500 rounded-full opacity-40 blur-2xl pointer-events-none" />
+        <div className="bg-brand-700 text-white rounded-2xl p-8 mb-8 shadow-md relative overflow-hidden">
+          <div className="absolute -top-10 -right-10 w-48 h-48 bg-brand-600 rounded-full opacity-40 blur-2xl pointer-events-none" />
           <div className="absolute -bottom-10 -left-10 w-48 h-48 bg-accent-600 rounded-full opacity-20 blur-2xl pointer-events-none" />
 
           <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -251,7 +254,7 @@ const TutorDashboard = () => {
             <div className="flex gap-3 flex-wrap">
               <Link
                 to="/notebook"
-                className="flex items-center gap-2 bg-brand-700 hover:bg-brand-800 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-all duration-150"
+                className="flex items-center gap-2 bg-brand-800 hover:bg-brand-900 text-white text-sm font-semibold px-4 py-2 rounded-xl transition-all duration-150"
               >
                 📓 Notebook
               </Link>
@@ -271,7 +274,7 @@ const TutorDashboard = () => {
           </div>
 
           {user?.inviteCode && (
-            <div className="relative mt-5 inline-flex items-center gap-2 bg-brand-700/60 border border-brand-400 backdrop-blur-sm px-4 py-2 rounded-xl">
+            <div className="relative mt-5 inline-flex items-center gap-2 bg-brand-800/60 border border-brand-500 backdrop-blur-sm px-4 py-2 rounded-xl">
               <span className="text-brand-200 text-xs font-medium">Your invite code:</span>
               <span className="text-white font-black tracking-widest text-sm font-mono">
                 {user.inviteCode}
@@ -383,51 +386,49 @@ const TutorDashboard = () => {
               <div className="text-4xl mb-2 animate-pulse">⏳</div>
               <p className="text-sm">Loading sessions...</p>
             </div>
-          ) : upcomingSessions.filter(s => s.date !== todayStr).length === 0 ? (
+          ) : otherUpcomingSessions.length === 0 ? (
             <div className="text-center py-10 text-gray-400">
               <div className="text-5xl mb-3">📭</div>
               <p className="font-medium text-sm">No upcoming sessions scheduled.</p>
               <p className="text-xs mt-1">Add availability so students can book.</p>
               <Link
                 to="/tutoravailability"
-                className="inline-block mt-4 bg-brand-600 text-white px-5 py-2 rounded-xl text-xs font-bold hover:bg-brand-700 transition"
+                className="inline-block mt-4 bg-brand-700 text-white px-5 py-2 rounded-xl text-xs font-bold hover:bg-brand-800 transition"
               >
                 Open Calendar →
               </Link>
             </div>
           ) : (
             <div className="flex flex-col gap-3">
-              {upcomingSessions
-                .filter(s => s.date !== todayStr)
-                .map(slot => (
-                  <div key={slot._id}
-                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-brand-50 border border-brand-100 rounded-xl px-5 py-4">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-brand-100 rounded-xl flex items-center justify-center text-xl">
-                        🧑‍🎓
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-800 text-sm">
-                          {formatDisplay(slot.date)}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          {slot.startTime} – {slot.endTime}
-                        </p>
-                        {slot.bookedBy && (
-                          <p className="text-xs text-brand-600 font-medium">
-                            {slot.bookedBy.name} · {slot.bookedBy.email}
-                          </p>
-                        )}
-                      </div>
+              {otherUpcomingSessions.map(slot => (
+                <div key={slot._id}
+                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-brand-50 border border-brand-100 rounded-xl px-5 py-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-brand-100 rounded-xl flex items-center justify-center text-xl">
+                      🧑‍🎓
                     </div>
-                    <button
-                      onClick={() => handleUnbook(slot._id)}
-                      className="text-xs bg-red-50 text-red-500 border border-red-200 px-3 py-1 rounded-full font-semibold hover:bg-red-100 transition self-start sm:self-auto"
-                    >
-                      Cancel
-                    </button>
+                    <div>
+                      <p className="font-semibold text-gray-800 text-sm">
+                        {formatDisplay(slot.date)}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {slot.startTime} – {slot.endTime}
+                      </p>
+                      {slot.bookedBy && (
+                        <p className="text-xs text-brand-600 font-medium">
+                          {slot.bookedBy.name} · {slot.bookedBy.email}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                ))}
+                  <button
+                    onClick={() => handleUnbook(slot._id)}
+                    className="text-xs bg-red-50 text-red-500 border border-red-200 px-3 py-1 rounded-full font-semibold hover:bg-red-100 transition self-start sm:self-auto"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </div>

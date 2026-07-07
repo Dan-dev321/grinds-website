@@ -83,7 +83,7 @@ const BookingNote = ({ slot, token, onSaved }) => {
             <span className="italic">"{slot.studentNote}"</span>
             <button
               onClick={() => setEditing(true)}
-              className="text-blue-500 hover:text-blue-700 font-semibold shrink-0"
+              className="text-brand-500 hover:text-brand-700 font-semibold shrink-0"
             >
               Edit
             </button>
@@ -91,7 +91,7 @@ const BookingNote = ({ slot, token, onSaved }) => {
         ) : (
           <button
             onClick={() => setEditing(true)}
-            className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
+            className="text-xs text-brand-600 hover:text-brand-800 font-semibold flex items-center gap-1"
           >
             📝 Leave a note
           </button>
@@ -108,13 +108,13 @@ const BookingNote = ({ slot, token, onSaved }) => {
         placeholder="e.g. Want to focus on quadratics, or practise for Friday's test"
         rows={2}
         maxLength={500}
-        className="text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+        className="text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-400 resize-none"
       />
       <div className="flex gap-2">
         <button
           onClick={handleSave}
           disabled={saving}
-          className="text-xs bg-blue-700 text-white px-3 py-1 rounded-full font-semibold hover:bg-blue-800 transition disabled:opacity-50"
+          className="text-xs bg-brand-700 text-white px-3 py-1 rounded-full font-semibold hover:bg-brand-800 transition disabled:opacity-50"
         >
           {saving ? 'Saving...' : 'Save note'}
         </button>
@@ -157,15 +157,14 @@ const StudentAvailability = () => {
   const flashSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(''), 3500) }
   const flashError   = (msg) => { setError(msg);   setTimeout(() => setError(''),   3500) }
 
-  // ── THE FIX: authHeader is now passed so the backend can identify
-  //    the student via tryGetStudentTutorId and return only their
-  //    assigned tutor's slots instead of every tutor's slots.
+  // authHeader is passed so the backend can identify the student via
+  // tryGetStudentTutorId and return only their assigned tutor's slots.
   const fetchSlots = async () => {
     try {
       setLoading(true)
       const res = await axios.get(
         `${API}/api/availability?weekStart=${formatDate(weekStart)}`,
-        authHeader // <-- THIS was the missing line
+        authHeader
       )
       setSlots(res.data)
     } catch (err) {
@@ -293,18 +292,18 @@ const StudentAvailability = () => {
         )}
 
         {!user && (
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl p-6 mb-6 text-center">
-            <p className="text-blue-800 font-semibold text-lg mb-1">👋 Want to book a session?</p>
-            <p className="text-blue-600 text-sm mb-4">
+          <div className="bg-brand-50 border border-brand-200 rounded-2xl p-6 mb-6 text-center">
+            <p className="text-brand-800 font-semibold text-lg mb-1">👋 Want to book a session?</p>
+            <p className="text-brand-600 text-sm mb-4">
               Create a free account or log in to reserve your spot.
             </p>
             <div className="flex justify-center gap-3">
               <Link to="/register"
-                className="bg-blue-700 text-white px-6 py-2 rounded-full font-semibold hover:bg-blue-800 transition text-sm">
+                className="bg-brand-700 text-white px-6 py-2 rounded-full font-semibold hover:bg-brand-800 transition text-sm">
                 Register Free
               </Link>
               <Link to="/login"
-                className="border-2 border-blue-700 text-blue-700 px-6 py-2 rounded-full font-semibold hover:bg-blue-100 transition text-sm">
+                className="border-2 border-brand-700 text-brand-700 px-6 py-2 rounded-full font-semibold hover:bg-brand-100 transition text-sm">
                 Log In
               </Link>
             </div>
@@ -313,7 +312,7 @@ const StudentAvailability = () => {
 
         <div className="flex items-center justify-between mb-3 bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-3">
           <button onClick={prevWeek}
-            className="text-blue-700 font-bold text-xl hover:text-blue-900 px-2">←</button>
+            className="text-brand-700 font-bold text-xl hover:text-brand-900 px-2">←</button>
           <div className="text-center">
             <p className="font-bold text-gray-800 text-sm">
               {formatDisplay(weekDates[0])} – {formatDisplay(weekDates[6])}
@@ -321,7 +320,7 @@ const StudentAvailability = () => {
             <p className="text-xs text-gray-400">{new Date(weekStart).getFullYear()}</p>
           </div>
           <button onClick={nextWeek}
-            className="text-blue-700 font-bold text-xl hover:text-blue-900 px-2">→</button>
+            className="text-brand-700 font-bold text-xl hover:text-brand-900 px-2">→</button>
         </div>
 
         {loading ? (
@@ -338,15 +337,15 @@ const StudentAvailability = () => {
                 <div className="py-2" />
                 {weekDates.map((date, i) => (
                   <div key={date}
-                    className={`py-2 text-center border-l border-gray-100 ${date === todayStr ? 'bg-blue-50' : ''}`}>
-                    <p className={`text-xs font-bold uppercase ${date === todayStr ? 'text-blue-700' : 'text-gray-500'}`}>
+                    className={`py-2 text-center border-l border-gray-100 ${date === todayStr ? 'bg-brand-50' : ''}`}>
+                    <p className={`text-xs font-bold uppercase ${date === todayStr ? 'text-brand-700' : 'text-gray-500'}`}>
                       {DAY_LABELS[i]}
                     </p>
-                    <p className={`text-xs font-semibold ${date === todayStr ? 'text-blue-700' : 'text-gray-600'}`}>
+                    <p className={`text-xs font-semibold ${date === todayStr ? 'text-brand-700' : 'text-gray-600'}`}>
                       {formatDisplay(date)}
                     </p>
                     {date === todayStr && (
-                      <span className="text-xs bg-blue-700 text-white px-1.5 py-0.5 rounded-full">
+                      <span className="text-xs bg-brand-700 text-white px-1.5 py-0.5 rounded-full">
                         Today
                       </span>
                     )}
@@ -387,7 +386,7 @@ const StudentAvailability = () => {
                         className={`
                           relative border-l border-gray-100
                           ${rowIdx % 2 === 0 ? 'border-t border-gray-50' : ''}
-                          ${date === todayStr ? 'bg-blue-50/20' : ''}
+                          ${date === todayStr ? 'bg-brand-50/20' : ''}
                           ${availableHere.length > 0 ? 'cursor-pointer' : ''}
                         `}
                         style={{ height: `${CELL_HEIGHT}px` }}
