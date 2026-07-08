@@ -127,44 +127,96 @@ const Home = () => {
           <div className="absolute -bottom-32 -left-24 w-96 h-96 bg-accent-600 rounded-full opacity-30 blur-3xl" />
         </div>
 
-        <div className="relative max-w-5xl mx-auto px-4 py-24 text-center">
+        <div className="relative max-w-5xl mx-auto px-4 py-20 sm:py-24 grid grid-cols-1 lg:grid-cols-2 gap-14 items-center">
 
-          {/* Badge */}
-          <div className="inline-flex items-center gap-2 bg-brand-800/60 border border-brand-500 text-brand-100 text-xs font-semibold px-4 py-1.5 rounded-full mb-8 backdrop-blur-sm">
-            <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
-            14-day free trial · No credit card required
+          {/* Left: copy */}
+          <div className="text-center lg:text-left">
+
+            {/* Badge */}
+            <div className="inline-flex items-center gap-2 bg-brand-800/60 border border-brand-500 text-brand-100 text-xs font-semibold px-4 py-1.5 rounded-full mb-8 backdrop-blur-sm">
+              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
+              14-day free trial · No credit card required
+            </div>
+
+            <h1 className="text-4xl sm:text-5xl font-extrabold mb-6 leading-tight tracking-tight">
+              Stop chasing students<br className="hidden lg:block" />
+              over WhatsApp for booking times.
+            </h1>
+
+            <p className="text-xl text-brand-100 mb-10 max-w-xl mx-auto lg:mx-0 leading-relaxed">
+              Built for independent tutors. Share one link, students book a slot,
+              you get a note-ready session — no spreadsheets, no group chats.
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
+              <Link
+                to="/register"
+                className="bg-white text-brand-700 font-bold px-8 py-3.5 rounded-xl hover:bg-brand-50 transition-all duration-150 shadow-lg text-base"
+              >
+                See your first week set up →
+              </Link>
+
+              <a href="#how-it-works"
+                className="border border-brand-500 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-brand-800 transition-all duration-150 text-base"
+              >
+                See how it works
+              </a>
+            </div>
+
+            {/* Social proof */}
+            <p className="mt-10 text-brand-300 text-sm">
+              Trusted by independent tutors across Ireland 🇮🇪
+            </p>
           </div>
 
-          <h1 className="text-5xl sm:text-6xl font-extrabold mb-6 leading-tight tracking-tight">
-            Manage your tutoring<br />
-            <span className="text-accent-300">business in one place.</span>
-          </h1>
+          {/* Right: mini live-demo card */}
+          <div className="relative">
+            <div className="bg-white rounded-2xl shadow-2xl p-5 max-w-sm mx-auto text-left">
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-400">
+                  Your workspace
+                </span>
+                <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+                  Live
+                </span>
+              </div>
 
-          <p className="text-xl text-brand-100 mb-10 max-w-2xl mx-auto leading-relaxed">
-            TutorNode gives independent tutors everything they need —
-            scheduling, student notes, profiles, and reminders —
-            in a single clean workspace.
-          </p>
+              {/* Step 1: request comes in */}
+              <div className="flex items-start gap-3 bg-brand-50 border border-brand-200 rounded-xl p-3 mb-3">
+                <div className="w-8 h-8 rounded-full bg-brand-500 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                  E
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">Emma requested Tue 4:00pm</p>
+                  <p className="text-xs text-gray-500">Maths · GCSE · 60 min</p>
+                </div>
+              </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link
-              to="/register"
-              className="bg-white text-brand-700 font-bold px-8 py-3.5 rounded-xl hover:bg-brand-50 transition-all duration-150 shadow-lg text-base"
-            >
-              Start your free trial →
-            </Link>
-            
-            <a href="#how-it-works"
-              className="border border-brand-500 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-brand-800 transition-all duration-150 text-base"
-            >
-              See how it works
-            </a>
+              {/* Step 2: confirmed + reminder */}
+              <div className="flex items-center gap-2 text-sm mb-3 pl-1">
+                <span className="text-emerald-500 font-bold">✓</span>
+                <span className="text-gray-700">Confirmed automatically</span>
+              </div>
+              <div className="flex items-center gap-2 text-sm mb-4 pl-1">
+                <span className="text-sky-500 font-bold">✓</span>
+                <span className="text-gray-700">Reminder email sent</span>
+              </div>
+
+              {/* Step 3: session note */}
+              <div className="bg-gray-50 border border-gray-100 rounded-xl p-3">
+                <p className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-1">
+                  After the session
+                </p>
+                <p className="text-sm text-gray-700 leading-relaxed">
+                  "Covered quadratics. Set 10 practice questions for homework."
+                </p>
+              </div>
+            </div>
+
+            <p className="text-center text-brand-200 text-xs mt-4">
+              This is what happens after you share your link. No setup shown, no fluff.
+            </p>
           </div>
-
-          {/* Social proof */}
-          <p className="mt-10 text-brand-300 text-sm">
-            Trusted by independent tutors across Ireland 🇮🇪
-          </p>
 
         </div>
       </section>
