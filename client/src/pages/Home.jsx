@@ -151,13 +151,13 @@ const Home = () => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Link
                 to="/register"
-                className="bg-white text-brand-700 font-bold px-8 py-3.5 rounded-xl hover:bg-brand-50 transition-all duration-150 shadow-lg text-base"
+                className="flex items-center justify-center bg-white text-brand-700 font-bold px-8 py-3.5 rounded-xl hover:bg-brand-50 transition-all duration-150 shadow-lg text-base"
               >
                 See your first week set up →
               </Link>
 
               <a href="#how-it-works"
-                className="border border-brand-500 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-brand-800 transition-all duration-150 text-base"
+                className="flex items-center justify-center border border-brand-500 text-white font-semibold px-8 py-3.5 rounded-xl hover:bg-brand-800 transition-all duration-150 text-base"
               >
                 See how it works
               </a>
